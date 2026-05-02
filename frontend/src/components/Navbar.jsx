@@ -6,7 +6,6 @@ import axios from "axios";
 
 const ADMIN_UIDS = ["bPCwZwhAVvMjO1BEYwC8io6QBb32"];
 
-// fallback so API always works
 const API = import.meta.env.VITE_API || "http://localhost:5000";
 
 export default function Navbar(){
@@ -15,6 +14,7 @@ export default function Navbar(){
   const [user,setUser]=useState(null);
   const [open,setOpen]=useState(false);
   const [isSeller,setIsSeller]=useState(false);
+  const [roleReady,setRoleReady]=useState(false);
 
   useEffect(()=>{
 
@@ -34,15 +34,19 @@ export default function Navbar(){
             nav("/profile");
           }
 
-          // always update seller state
+          // role DB se aata hai — "seller" ya "admin" ya "user"
           setIsSeller(res.data.role === "seller");
 
         }catch(err){
           console.log("User check error:",err);
+          setIsSeller(false);
+        }finally{
+          setRoleReady(true);
         }
 
       }else{
         setIsSeller(false);
+        setRoleReady(true);
       }
 
     });
@@ -66,6 +70,7 @@ export default function Navbar(){
   const logout = async ()=>{
     await auth.signOut();
     setIsSeller(false);
+    setRoleReady(false);
     nav("/");
   };
 
@@ -112,7 +117,7 @@ export default function Navbar(){
 
           {/* SELLER MENU */}
 
-          {isSeller && (
+          {roleReady && isSeller && (
             <>
               <hr/>
               <b>Seller</b>
@@ -139,6 +144,10 @@ export default function Navbar(){
               <MenuBtn onClick={()=>nav("/store")}>Store</MenuBtn>
               <MenuBtn onClick={()=>nav("/admin")}>Admin Panel</MenuBtn>
               <MenuBtn onClick={()=>nav("/admin-dashboard")}>Dashboard</MenuBtn>
+
+              {/* ✅ NEW */}
+              <MenuBtn onClick={()=>nav("/admin-sellers")}>👥 Manage Sellers</MenuBtn>
+
             </>
           )}
 
@@ -172,7 +181,7 @@ function MenuBtn({children,onClick,danger}){
   );
 }
 
-/* STYLES */
+/* STYLES — same as before */
 
 const bar={
   height:65,

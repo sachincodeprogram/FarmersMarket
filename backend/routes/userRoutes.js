@@ -24,34 +24,100 @@ router.post("/profile", async (req, res) => {
   }
 });
 
+
 // CHECK PROFILE COMPLETE + ROLE
-router.get("/check/:uid", async (req,res)=>{
-  try{
+router.get("/check/:uid", async (req, res) => {
+  try {
 
-    const user = await User.findOne({ uid:req.params.uid });
+    const user = await User.findOne({ uid: req.params.uid });
 
-    if(user && user.profileDone){
+    if (user && user.profileDone) {
       res.json({
-        complete:true,
-        role:user.role || "user"   // 👈 SELLER ROLE RETURN
+        complete: true,
+        role: user.role || "user",
+        location: user.location || ""   // ✅ NEW — location bhi return ho
       });
-    }else{
+    } else {
       res.json({
-        complete:false,
-        role:"user"
+        complete: false,
+        role: "user",
+        location: ""
       });
     }
 
-  }catch(err){
-    res.status(500).json({error:err.message});
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
-// GET ALL USERS
+
+// GET ALL USERS (admin ke liye)
 router.get("/", async (req, res) => {
   try {
     const users = await User.find();
     res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// ✅ NEW — ADMIN: Kisi user ko Seller banao
+router.post("/assign-seller", async (req, res) => {
+  try {
+
+    const { uid, location } = req.body;
+
+    if (!uid || !location) {
+      return res.status(400).json({ error: "uid aur location dono chahiye" });
+    }
+
+    const user = await User.findOne({ uid });
+
+    if (!user) {
+      return res.status(404).json({ error: "User nahi mila" });
+    }
+
+    await User.updateOne(
+      { uid },
+      {
+        $set: {
+          role: "seller",
+          location: location.trim()
+        }
+      }
+    );
+
+    res.json({ success: true, message: `${user.name} ab seller hai — ${location}` });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// ✅ NEW — ADMIN: Seller ko wapas User banao
+router.post("/remove-seller", async (req, res) => {
+  try {
+
+    const { uid } = req.body;
+
+    if (!uid) {
+      return res.status(400).json({ error: "uid chahiye" });
+    }
+
+    await User.updateOne(
+      { uid },
+      {
+        $set: {
+          role: "user",
+          location: ""
+        }
+      }
+    );
+
+    res.json({ success: true, message: "Seller role remove ho gaya" });
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

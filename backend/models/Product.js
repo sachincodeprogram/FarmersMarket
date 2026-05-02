@@ -6,10 +6,10 @@ const productSchema = new mongoose.Schema({
   image: String,
   video: String,
 
-  // NEW
+  // ✅ FIX: sellerId String rakho — Firebase UID string hota hai, ObjectId nahi
   sellerId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
+    type: String,
+    default: null,
   },
 
   location: String

@@ -15,12 +15,14 @@ import Admin from "./pages/Admin";
 import AdminDashboard from "./pages/AdminDashboard";
 import StoreAdmin from "./pages/StoreAdmin";
 import AdminAddProduct from "./pages/AdminAddProduct";
+import AdminManageSellers from "./pages/AdminManageSellers";
 import AdminProducts from "./pages/AdminProducts";
 import PublicLanding from "./pages/PublicLanding";
 
 // NEW SELLER PAGES
 import SellerDashboard from "./pages/SellerDashboard";
 import SellerAddProduct from "./pages/SellerAddProduct";
+import SellerRoute from "./components/SellerRoute";
 
 export default function App(){
 
@@ -88,16 +90,21 @@ export default function App(){
         {/* SELLER ROUTES */}
 
         <Route path="/seller-dashboard" element={
-          <ProfileGuard>
+          <SellerRoute>
             <SellerDashboard/>
-          </ProfileGuard>
+          </SellerRoute>
         }/>
 
         <Route path="/seller-add-product" element={
-          <ProfileGuard>
+          <SellerRoute>
             <SellerAddProduct/>
-          </ProfileGuard>
+          </SellerRoute>
         }/>
+        <Route path="/admin-sellers" element={
+  <AdminRoute>
+    <AdminManageSellers/>
+  </AdminRoute>
+}/>
 
       </Routes>
 

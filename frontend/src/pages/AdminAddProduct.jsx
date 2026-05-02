@@ -1,10 +1,20 @@
 import { useState } from "react";
-import "./AdminAddProduct.css";   // ✅ CSS Added
+import "./AdminAddProduct.css";
+
+const API = import.meta.env.VITE_API || "http://localhost:5000";
+
+// Bharat ki cities — same as Home.jsx
+const CITIES = [
+  "Delhi", "Mumbai", "Kolkata", "Chennai", "Bangalore",
+  "Hyderabad", "Pune", "Ahmedabad", "Jaipur", "Lucknow",
+  "Noida", "Gurgaon",
+];
 
 export default function AdminAddProduct(){
 
   const [name,setName]=useState("");
   const [price,setPrice]=useState("");
+  const [location,setLocation]=useState("");
   const [image,setImage]=useState(null);
   const [video,setVideo]=useState(null);
   const [loading,setLoading]=useState(false);
@@ -13,12 +23,17 @@ export default function AdminAddProduct(){
   const save = async ()=>{
 
     if(!name||!price||!image||!video){
-      setMsg("❌ Fill all fields");
+      setMsg("❌ Sab fields fill karo");
       return;
     }
 
-    if(video.size > 20 * 1024 * 1024){
-      setMsg("❌ Video must be under 20MB");
+    if(!location){
+      setMsg("❌ City chuniye — kis market ke liye product hai?");
+      return;
+    }
+
+    if(video.size > 50 * 1024 * 1024){
+      setMsg("❌ Video must be under 50MB");
       return;
     }
 
@@ -30,24 +45,27 @@ export default function AdminAddProduct(){
       const fd = new FormData();
       fd.append("name",name);
       fd.append("price",price);
+      fd.append("location",location);
       fd.append("image",image);
       fd.append("video",video);
 
-      const res = await fetch("http://localhost:5000/api/products/add",{
+      const res = await fetch(`${API}/api/products/add`,{
         method:"POST",
         body:fd
       });
 
       if(!res.ok) throw new Error("Upload failed");
 
-      setMsg("✅ Product uploaded successfully");
+      setMsg("✅ Product successfully add ho gaya — " + location + " market mein");
 
       setName("");
       setPrice("");
+      setLocation("");
       setImage(null);
       setVideo(null);
 
     }catch(err){
+      console.log(err);
       setMsg("❌ Upload error / server problem");
     }
 
@@ -71,34 +89,57 @@ export default function AdminAddProduct(){
 
         <input
           type="number"
-          placeholder="Price"
+          placeholder="Price (₹ per kg)"
           value={price}
           onChange={e=>setPrice(e.target.value)}
           style={input}
           className="adminadd-input"
         />
 
+        {/* ✅ NEW — City / Location selector */}
+        <select
+          style={{...input, color: location ? "#333" : "#888", cursor:"pointer"}}
+          value={location}
+          onChange={e=>setLocation(e.target.value)}
+        >
+          <option value="">📍 City chuniye (Market Location)</option>
+          {CITIES.map(c=>(
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+
         <label style={fileBox} className="adminadd-file">
           📷 Select Image
           <input type="file" hidden accept="image/*" onChange={e=>setImage(e.target.files[0])}/>
         </label>
 
-        {image && <small>Image selected</small>}
+        {image && <small style={{color:"#16a34a"}}>✅ Image: {image.name}</small>}
 
         <label style={fileBox} className="adminadd-file">
-          🎥 Select Video (max 20MB)
+          🎥 Select Video (max 50MB)
           <input type="file" hidden accept="video/*" onChange={e=>setVideo(e.target.files[0])}/>
         </label>
 
-        {video && <small>Video selected</small>}
+        {video && <small style={{color:"#16a34a"}}>✅ Video: {video.name}</small>}
 
         <button onClick={save} style={btn} className="adminadd-btn" disabled={loading}>
-          {loading ? "Uploading..." : "Upload Product"}
+          {loading ? "⏳ Uploading..." : "Upload Product"}
         </button>
 
         {loading && <div style={spinner}></div>}
 
-        {msg && <div style={toast} className="adminadd-toast">{msg}</div>}
+        {msg && (
+          <div style={{
+            ...toast,
+            color: msg.startsWith("✅") ? "#16a34a" : "#dc2626",
+            background: msg.startsWith("✅") ? "#f0fdf4" : "#fef2f2",
+            padding: "10px 14px",
+            borderRadius: 10,
+            marginTop: 14
+          }} className="adminadd-toast">
+            {msg}
+          </div>
+        )}
 
       </div>
 
@@ -106,7 +147,7 @@ export default function AdminAddProduct(){
   );
 }
 
-/* EXISTING INLINE STYLES (UNCHANGED) */
+/* STYLES */
 
 const wrap={
   minHeight:"100vh",
@@ -133,7 +174,8 @@ const input={
   marginTop:12,
   borderRadius:10,
   border:"1px solid #ddd",
-  fontSize:15
+  fontSize:15,
+  boxSizing:"border-box"
 };
 
 const fileBox={
@@ -174,8 +216,6 @@ const spinner={
   borderRadius:"50%",
   animation:"spin 1s linear infinite"
 };
-
-/* SPINNER KEYFRAME (UNCHANGED) */
 
 const style=document.createElement("style");
 style.innerHTML=`

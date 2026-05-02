@@ -10,9 +10,12 @@ const OrderSchema = new mongoose.Schema(
     totalQty: Number,
     totalPrice: Number,
     advancePaid: Number,
+
+    location: String,         // ✅ NEW — vendor filter ke liye
+
     status: {
       type: String,
-      default: "pending"   // pending | delivered
+      default: "pending"      // pending | delivered
     }
   },
   { timestamps: true }
