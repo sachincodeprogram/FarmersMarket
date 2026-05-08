@@ -1,0 +1,199 @@
+import { useEffect, useState } from "react";
+import { auth } from "../firebase";
+import axios from "axios";
+
+const API = import.meta.env.VITE_API;
+
+export default function MyOrders(){
+
+  const [orders,setOrders]=useState([]);
+  const [screen,setScreen]=useState(window.innerWidth);
+
+  // ✅ Only for responsiveness (logic untouched)
+  useEffect(()=>{
+    const handleResize=()=>setScreen(window.innerWidth);
+    window.addEventListener("resize",handleResize);
+    return ()=>window.removeEventListener("resize",handleResize);
+  },[]);
+
+  useEffect(()=>{
+    auth.onAuthStateChanged(async(user)=>{
+      if(!user) return;
+
+      const res = await axios.get(
+        `${API}/api/orders/user/`+user.uid
+      );
+
+      setOrders(res.data.filter(o=>o.totalPrice>0));
+    });
+  },[]);
+
+  async function orderAgain(o){
+
+    const { data } = await axios.post(
+      `${API}/api/payment/create-order`,
+      { price: o.totalPrice }
+    );
+
+    const options = {
+      key: data.key,
+      amount: data.total * 100,
+      currency: "INR",
+      order_id: data.orderId,
+
+      handler: async (response) => {
+
+        await axios.post(`${API}/api/payment/verify`, response);
+
+        await axios.post(`${API}/api/orders/again`,{
+          orderId: o._id
+        });
+
+        alert("Order placed again");
+        window.location.reload();
+      }
+    };
+
+    new window.Razorpay(options).open();
+  }
+
+  const mobile = screen < 640;
+
+  return(
+    <div style={wrap}>
+
+      <h2 style={title}>📦 My Orders</h2>
+
+      {orders.map(o=>(
+
+        <div key={o._id} style={card}>
+
+          <div style={row(mobile)}>
+
+            <b>Status</b>
+
+            <span style={{
+              ...pill,
+              background:o.status==="delivered"?"#dcfce7":"#fef3c7",
+              color:o.status==="delivered"?"#166534":"#92400e"
+            }}>
+              {o.status}
+            </span>
+
+          </div>
+
+          <div style={items}>
+            {o.items.map((x,i)=>(
+              <div key={i} style={itemRow}>
+                <span>{x.name}</span>
+                <span>× {x.qty}</span>
+              </div>
+            ))}
+          </div>
+
+          <p style={price}>
+            ₹{o.totalPrice}
+          </p>
+
+          {o.status==="delivered" && (
+            <button style={btn} onClick={()=>orderAgain(o)}>
+              Order Again (Pay 25%)
+            </button>
+          )}
+
+          {o.status==="pending" && (
+            <p style={pending}>
+              🕒 Pending Delivery
+            </p>
+          )}
+
+        </div>
+
+      ))}
+
+    </div>
+  );
+}
+
+/* 🎨 PROFESSIONAL RESPONSIVE UI (Only Style Changed) */
+
+const wrap={
+  padding:"clamp(16px,3vw,40px)",
+  background:"#f1f5f9",
+  minHeight:"100vh",
+  maxWidth:"1100px",
+  margin:"auto"
+};
+
+const title={
+  marginBottom:"24px",
+  fontSize:"clamp(20px,2.5vw,28px)",
+  fontWeight:"700",
+  color:"#0f172a"
+};
+
+const card={
+  background:"#ffffff",
+  padding:"clamp(16px,2vw,24px)",
+  borderRadius:"16px",
+  marginBottom:"18px",
+  boxShadow:"0 10px 25px rgba(0,0,0,.05)",
+  border:"1px solid #e2e8f0",
+  transition:"0.3s"
+};
+
+const row=(mobile)=>({
+  display:"flex",
+  flexDirection:mobile?"column":"row",
+  justifyContent:"space-between",
+  alignItems:mobile?"flex-start":"center",
+  gap:mobile?6:0
+});
+
+const items={
+  marginTop:"14px",
+  paddingTop:"12px",
+  borderTop:"1px dashed #e2e8f0"
+};
+
+const itemRow={
+  display:"flex",
+  justifyContent:"space-between",
+  fontSize:"14px",
+  color:"#475569",
+  marginBottom:"6px"
+};
+
+const pill={
+  padding:"6px 14px",
+  borderRadius:"999px",
+  fontSize:"13px",
+  fontWeight:"600"
+};
+
+const price={
+  marginTop:"14px",
+  fontWeight:"700",
+  fontSize:"18px",
+  color:"#020617"
+};
+
+const btn={
+  marginTop:"16px",
+  width:"100%",
+  background:"linear-gradient(135deg,#2563eb,#1d4ed8)",
+  color:"#fff",
+  border:"none",
+  padding:"13px",
+  borderRadius:"12px",
+  fontSize:"15px",
+  cursor:"pointer",
+  fontWeight:"600",
+  boxShadow:"0 8px 20px rgba(37,99,235,.25)"
+};
+
+const pending={
+  marginTop:"12px",
+  color:"#b45309",
+  fontWeight:"500"
+};
