@@ -283,7 +283,7 @@ export default function Bag() {
                 {/* Reward Code */}
                 {!rewardApplied ? (
                   <div className="bag-reward-wrap">
-                    <p className="bag-reward-label">🎁 Reward Code Hai?</p>
+                    <p className="bag-reward-label">🎁 Free Order</p>
                     <div className="bag-reward-row">
                       <input
                         className="bag-reward-input"

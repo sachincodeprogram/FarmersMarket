@@ -99,33 +99,6 @@ export default function MyOrders(){
 
       <h2 style={title}>📦 My Orders</h2>
 
-      {/* Reward code input — always visible */}
-      <div style={inputBox}>
-        <p style={inputTitle}>🎁 Reward Code Apply Karo</p>
-        <div style={inputRow}>
-          <input
-            style={codeInput}
-            value={rewardInput}
-            onChange={e=>{ setRewardInput(e.target.value.toUpperCase()); setRewardMsg(null); }}
-            placeholder="Reward Code Daalo (e.g. KISANXYZ123)"
-            onKeyDown={e=>{ if(e.key==="Enter") applyRewardCode(); }}
-          />
-          <button style={applyBtn} onClick={applyRewardCode} disabled={rewardChecking}>
-            {rewardChecking ? "..." : "Apply"}
-          </button>
-        </div>
-        {rewardMsg && (
-          <p style={{ marginTop:8, fontSize:13, fontWeight:600, color: rewardMsg.type==="ok"?"#15803d":"#dc2626" }}>
-            {rewardMsg.text}
-            {rewardMsg.type==="ok" && (
-              <a href="/bag" style={{ marginLeft:10, color:"#7c3aed", textDecoration:"underline", fontWeight:700 }}>
-                Bag mein jao →
-              </a>
-            )}
-          </p>
-        )}
-      </div>
-
       {/* Earned reward codes */}
       {rewards.length > 0 && (
         <div style={rewardBox}>
