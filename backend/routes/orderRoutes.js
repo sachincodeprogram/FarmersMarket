@@ -69,7 +69,7 @@ router.post("/create", async (req, res) => {
   // Reward: alag-alag din par order karne pe milta hai
   // Milestones: 3 → 6 → 18 → 36 → 72 → 144... (3×2, 6×3, 18×2, then doubles)
   function getRewardThreshold(n) {
-    const milestones = [3, 6, 18, 36];
+    const milestones = [1, 2, 3, 4]; // TEST MODE — wapas [3,6,18,36] karna hai
     if (n < milestones.length) return milestones[n];
     let t = 36;
     for (let i = milestones.length; i <= n; i++) t *= 2;
