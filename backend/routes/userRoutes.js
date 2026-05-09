@@ -112,16 +112,8 @@ router.post("/remove-seller", async (req, res) => {
       return res.status(400).json({ error: "uid chahiye" });
     }
 
-    await User.updateOne(
-      { uid },
-      {
-        $set: {
-          role: "user",
-          location: "",
-          sellerType: null
-        }
-      }
-    );
+    // Keep location and sellerType so re-add is pre-filled correctly
+    await User.updateOne({ uid }, { $set: { role: "user" } });
 
     res.json({ success: true, message: "Seller role remove ho gaya" });
 

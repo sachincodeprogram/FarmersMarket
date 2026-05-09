@@ -16,7 +16,7 @@ router.get("/location/:location", async (req, res) => {
     const products = await Product.find({ location: req.params.location });
 
     const sellerIds = [...new Set(products.map(p => p.sellerId).filter(Boolean))];
-    const sellers = await User.find({ uid: { $in: sellerIds } });
+    const sellers = await User.find({ uid: { $in: sellerIds }, role: "seller" });
 
     const sellerMap = {};
     sellers.forEach(s => {

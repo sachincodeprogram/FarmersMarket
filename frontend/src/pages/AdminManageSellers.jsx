@@ -207,7 +207,7 @@ export default function AdminManageSellers() {
             formOpen={formUid === u.uid}
             formCity={formCity} formType={formType}
             saving={saving}
-            onOpenForm={() => openForm(u.uid, "", "city_seller")}
+            onOpenForm={() => openForm(u.uid, u.location || "", u.sellerType || "city_seller")}
             onCloseForm={closeForm}
             onCityChange={setFormCity}
             onTypeChange={setFormType}
