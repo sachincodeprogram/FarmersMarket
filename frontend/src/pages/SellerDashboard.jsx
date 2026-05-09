@@ -94,6 +94,13 @@ export default function SellerDashboard() {
     finally { setSavingId(null); }
   }
 
+  function daysAgo(dateStr){
+    const d = Math.floor((Date.now() - new Date(dateStr)) / (1000*60*60*24));
+    if(d === 0) return "Aaj";
+    if(d === 1) return "1 din pehle";
+    return d + " din pehle";
+  }
+
   async function markDelivered(id) {
     try {
       await axios.put(`${API}/api/orders/deliver/${id}`);
@@ -153,6 +160,64 @@ export default function SellerDashboard() {
         </div>
 
         <div className="sd-body">
+
+          {/* ── PROGRESS TRACKER ── */}
+          {orders.length > 0 && (()=>{
+            const oldest      = [...orders].sort((a,b)=> new Date(a.createdAt)-new Date(b.createdAt))[0];
+            const newest      = [...orders].sort((a,b)=> new Date(b.createdAt)-new Date(a.createdAt))[0];
+            const daysSinceOldest = Math.floor((Date.now()-new Date(oldest.createdAt))/(1000*60*60*24));
+            const todayCount  = orders.filter(o=>
+              new Date(o.createdAt).toDateString()===new Date().toDateString()
+            ).length;
+            return (
+              <div className="sd-progress-box">
+                <p className="sd-progress-title">📊 Order Progress</p>
+
+                {/* Pending orders bar */}
+                <div className="sd-prog-row">
+                  <span className="sd-prog-label">🧾 Pending Orders:</span>
+                  <div className="sd-bar-wrap">
+                    <div className="sd-bar-fill" style={{width:`${Math.min((orders.length/10)*100,100)}%`, background: isThok?"#f97316":"#22c55e"}}/>
+                  </div>
+                  <span className="sd-prog-count">{orders.length}</span>
+                  <span className={`sd-prog-badge ${orders.length>0?"sd-badge-ok":""}`}>
+                    {orders.length>0 ? `${orders.length} pending` : "Koi order nahi"}
+                  </span>
+                </div>
+
+                {/* Aaj ke orders */}
+                <div className="sd-prog-row">
+                  <span className="sd-prog-label">📅 Aaj Ke Orders:</span>
+                  <div className="sd-bar-wrap">
+                    <div className="sd-bar-fill" style={{width:`${Math.min((todayCount/orders.length)*100,100)}%`, background:"#3b82f6"}}/>
+                  </div>
+                  <span className="sd-prog-count">{todayCount}</span>
+                  <span className="sd-prog-badge" style={{background:"#eff6ff",color:"#2563eb"}}>
+                    {todayCount > 0 ? `${todayCount} aaj` : "Aaj koi nahi"}
+                  </span>
+                </div>
+
+                {/* Oldest pending */}
+                {daysSinceOldest > 0 && (
+                  <p className="sd-prog-warn">
+                    ⚠️ Sabse purana order {daysSinceOldest} din se pending hai — jaldi deliver karo!
+                  </p>
+                )}
+
+                {/* Per-order day list */}
+                <div className="sd-daylist-wrap">
+                  <p className="sd-daylist-title">📋 Orders (Din ke Hisab Se)</p>
+                  {[...orders].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map((o,i)=>(
+                    <div key={o._id} className="sd-daylist-row">
+                      <span className="sd-daylist-num">Order {i+1}</span>
+                      <span className="sd-daylist-name">{o.name}</span>
+                      <span className="sd-daylist-date">{daysAgo(o.createdAt)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* ── TABS ── */}
           <div className="sd-tabs">
@@ -281,7 +346,10 @@ export default function SellerDashboard() {
                           <div className="sd-order-contact">📞 {o.phone}</div>
                           <div className="sd-order-address">🏠 {o.address}</div>
                         </div>
-                        <div className="sd-pending-badge">⏳ Pending</div>
+                        <div style={{textAlign:"right"}}>
+                          <div className="sd-pending-badge">⏳ Pending</div>
+                          <div className="sd-days-tag">{daysAgo(o.createdAt)}</div>
+                        </div>
                       </div>
 
                       <div className="sd-order-divider" />
@@ -753,4 +821,68 @@ const css = `
     box-shadow: 0 4px 14px rgba(45,90,39,0.25);
   }
   .sd-deliver-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(45,90,39,0.3); }
+
+  /* PROGRESS TRACKER */
+  .sd-progress-box {
+    background: #fff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 18px;
+    padding: 20px 22px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+    animation: fadeUp 0.3s ease both;
+  }
+  .sd-progress-title {
+    font-size: 15px; font-weight: 800; color: #0f172a; margin-bottom: 16px;
+  }
+  .sd-prog-row {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 12px; flex-wrap: wrap;
+  }
+  .sd-prog-label {
+    font-size: 13px; font-weight: 600; color: #374151; min-width: 130px;
+  }
+  .sd-bar-wrap {
+    flex: 1; min-width: 80px; height: 10px;
+    background: #e2e8f0; border-radius: 999px; overflow: hidden;
+  }
+  .sd-bar-fill { height: 100%; border-radius: 999px; transition: width 0.4s; }
+  .sd-prog-count {
+    font-size: 13px; font-weight: 700; color: #0f172a; min-width: 24px;
+  }
+  .sd-prog-badge {
+    font-size: 12px; font-weight: 700;
+    background: #fef3c7; color: #92400e;
+    padding: 3px 10px; border-radius: 999px;
+  }
+  .sd-badge-ok { background: #dcfce7; color: #166534; }
+  .sd-prog-warn {
+    font-size: 12px; font-weight: 700; color: #dc2626;
+    background: #fef2f2; border: 1px solid #fecaca;
+    border-radius: 10px; padding: 8px 12px; margin-top: 4px;
+  }
+  .sd-daylist-wrap {
+    margin-top: 16px; border-top: 1px dashed #e2e8f0; padding-top: 14px;
+  }
+  .sd-daylist-title {
+    font-weight: 700; font-size: 12px; color: #374151; margin-bottom: 10px;
+  }
+  .sd-daylist-row {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 7px; flex-wrap: wrap;
+  }
+  .sd-daylist-num {
+    font-size: 12px; font-weight: 700; color: #7c3aed;
+    background: #ede9fe; padding: 2px 8px; border-radius: 999px; min-width: 60px;
+  }
+  .sd-daylist-name { font-size: 13px; color: #374151; flex: 1; font-weight: 600; }
+  .sd-daylist-date {
+    font-size: 12px; color: #64748b; font-weight: 600;
+    background: #f1f5f9; padding: 2px 8px; border-radius: 999px;
+  }
+  .sd-days-tag {
+    font-size: 11px; font-weight: 600; color: #64748b;
+    background: #f1f5f9; padding: 2px 8px; border-radius: 999px;
+    margin-top: 6px; display: inline-block;
+  }
 `;
