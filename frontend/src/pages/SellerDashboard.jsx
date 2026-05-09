@@ -31,7 +31,7 @@ export default function SellerDashboard() {
           if (type === "thok_seller") {
             loadThokOrders(u.uid);
           } else {
-            loadOrders(loc);
+            loadCityOrders(u.uid);
           }
         }
       } catch (err) { console.log(err); }
@@ -47,9 +47,9 @@ export default function SellerDashboard() {
     } catch (err) { console.log(err); }
   }
 
-  async function loadOrders(loc) {
+  async function loadCityOrders(uid) {
     try {
-      const res = await axios.get(`${API}/api/orders/vendor/${loc}`);
+      const res = await axios.get(`${API}/api/orders/city-seller/${uid}`);
       setOrders(res.data);
     } catch (err) { console.log(err); }
   }

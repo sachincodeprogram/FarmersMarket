@@ -62,11 +62,13 @@ export default function Bag() {
           const verify = await axios.post(`${API}/api/payment/verify`, response);
           if (verify.data.success) {
             // ── STEP 4: Create order in DB
-            const uid = auth.currentUser?.uid;
+            const uid  = auth.currentUser?.uid;
+            const city = localStorage.getItem("fm_city") || "";
             await axios.post(`${API}/api/orders/create`, {
               uid,
               advance: payInfo.advance,
               totalPrice,
+              city,
             });
             setStep("success");
           } else {

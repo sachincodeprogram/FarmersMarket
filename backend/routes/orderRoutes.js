@@ -7,7 +7,7 @@ const Product = require("../models/Product");
 // CREATE ORDER FROM BAG
 router.post("/create", async (req, res) => {
 
-  const { uid, advance } = req.body;
+  const { uid, advance, city } = req.body;
 
   const user = await User.findOne({ uid });
   const bags = await BagItem.find({ uid });
@@ -42,7 +42,7 @@ router.post("/create", async (req, res) => {
     totalQty,
     totalPrice,
     advancePaid: advance,
-    location: user.location || "",
+    location: city || "",
     thokSellers,
     status: "pending"
   });
@@ -99,6 +99,20 @@ router.get("/vendor/:location", async (req, res) => {
   try {
     const orders = await Order.find({
       location: req.params.location,
+      status: "pending"
+    }).sort({ createdAt: -1 });
+
+    res.json(orders);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// CITY SELLER — sirf us seller ke products wale orders (items.sellerId se match)
+router.get("/city-seller/:uid", async (req, res) => {
+  try {
+    const orders = await Order.find({
+      "items.sellerId": req.params.uid,
       status: "pending"
     }).sort({ createdAt: -1 });
 
