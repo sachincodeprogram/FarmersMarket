@@ -145,24 +145,27 @@ export default function MyOrders(){
           <div style={progressBox}>
             <p style={progressTitle}>🏆 Reward Progress — Alag Din Pe Order Karo</p>
 
-            {/* Milestone chain */}
+            {/* Milestone chain — numbered rewards */}
             <div style={{display:"flex", gap:8, flexWrap:"wrap", marginBottom:16}}>
               {chain.map((t, i) => {
                 const done    = uniqueDays >= t;
                 const current = t === nextT;
                 return (
                   <span key={t} style={{
-                    padding:"5px 13px", borderRadius:999, fontSize:12, fontWeight:700,
+                    padding:"5px 13px", borderRadius:999, fontSize:13, fontWeight:800,
                     background: done ? "#dcfce7" : current ? "#fef3c7" : "#f1f5f9",
                     color:      done ? "#166534" : current ? "#92400e" : "#94a3b8",
                     border:     current ? "2px solid #f59e0b" : "2px solid transparent",
                     transition: "0.3s"
                   }}>
-                    {done ? "✅" : current ? "🎯" : "⏳"} {t} din
+                    {done ? "✅" : current ? "🎯" : "⏳"} {i + 1}
                   </span>
                 );
               })}
             </div>
+            <p style={{fontSize:12, color:"#94a3b8", marginBottom:12}}>
+              {chain.map((t, i) => `${i+1} = ${t} din`).join("  •  ")}
+            </p>
 
             {/* Progress bar */}
             <div style={progressRow}>
