@@ -1,5 +1,6 @@
 const router = require("express").Router();
 const User = require("../models/User");
+const Product = require("../models/Product");
 
 // SAVE / UPDATE PROFILE
 router.post("/profile", async (req, res) => {
@@ -82,19 +83,18 @@ router.post("/assign-seller", async (req, res) => {
       return res.status(404).json({ error: "User nahi mila" });
     }
 
+    const trimmedLocation = location.trim();
+
     await User.updateOne(
       { uid },
-      {
-        $set: {
-          role: "seller",
-          location: location.trim(),
-          sellerType: type
-        }
-      }
+      { $set: { role: "seller", location: trimmedLocation, sellerType: type } }
     );
 
+    // Sync all existing products to the seller's new location
+    await Product.updateMany({ sellerId: uid }, { $set: { location: trimmedLocation } });
+
     const typeLabel = type === "thok_seller" ? "Thok Mandi Seller" : "City Seller";
-    res.json({ success: true, message: `${user.name} ab ${typeLabel} hai — ${location}` });
+    res.json({ success: true, message: `${user.name} ab ${typeLabel} hai — ${trimmedLocation}` });
 
   } catch (err) {
     res.status(500).json({ error: err.message });

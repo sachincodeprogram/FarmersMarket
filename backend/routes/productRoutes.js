@@ -27,12 +27,15 @@ router.get("/location/:location", async (req, res) => {
       };
     });
 
-    let enriched = products.map(p => ({
-      ...p.toObject(),
-      sellerName:  sellerMap[p.sellerId]?.name       || "Kisan",
-      sellerPhone: sellerMap[p.sellerId]?.phone      || "",
-      sellerType:  sellerMap[p.sellerId]?.sellerType || "city_seller",
-    }));
+    // Only include products from active sellers (skip products of removed/non-existent sellers)
+    let enriched = products
+      .filter(p => p.sellerId && sellerMap[p.sellerId])
+      .map(p => ({
+        ...p.toObject(),
+        sellerName:  sellerMap[p.sellerId].name,
+        sellerPhone: sellerMap[p.sellerId].phone,
+        sellerType:  sellerMap[p.sellerId].sellerType,
+      }));
 
     // Filter by sellerType if provided
     if (type === "thok_seller") {
