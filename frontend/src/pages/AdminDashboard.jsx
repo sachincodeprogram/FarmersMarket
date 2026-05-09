@@ -8,23 +8,31 @@ export default function AdminDashboard(){
 
   const [data,setData]               = useState({});
   const [sellers,setSellers]         = useState([]);
+  const [pending,setPending]         = useState([]);
   const [delivered,setDelivered]     = useState([]);
+  const [showPending,setShowPending] = useState(true);
   const [showDelivered,setShowDelivered] = useState(false);
 
   useEffect(()=>{
     axios.get(`${API}/api/orders/admin/summary`)
       .then(res=>setData(res.data));
     axios.get(`${API}/api/users`)
-      .then(res=>{
-        const allSellers = res.data.filter(u=>u.role==="seller");
-        setSellers(allSellers);
-      });
+      .then(res=>setSellers(res.data.filter(u=>u.role==="seller")));
+    axios.get(`${API}/api/orders/admin`)
+      .then(res=>setPending(Array.isArray(res.data)?res.data:[]));
     axios.get(`${API}/api/orders/admin/delivered`)
       .then(res=>setDelivered(Array.isArray(res.data)?res.data:[]));
   },[]);
 
   function fmtDate(d){
     return new Date(d).toLocaleDateString("hi-IN",{day:"2-digit",month:"short",year:"numeric"});
+  }
+
+  function fmtDateTime(d){
+    const dt = new Date(d);
+    const date = dt.toLocaleDateString("hi-IN",{day:"2-digit",month:"short",year:"numeric"});
+    const time = dt.toLocaleTimeString("hi-IN",{hour:"2-digit",minute:"2-digit",hour12:true});
+    return `${date}, ${time}`;
   }
 
   const citySellers = sellers.filter(u=>!u.sellerType||u.sellerType==="city_seller");
@@ -100,6 +108,77 @@ export default function AdminDashboard(){
         <Bar label="Sales ₹" value={data.totalSales||0} max={max}/>
       </div>
 
+      {/* PENDING ORDERS */}
+      <div style={{marginTop:40}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:10}}>
+          <h3 style={{fontSize:17,color:"#374151",margin:0}}>
+            ⏳ Pending Orders
+            <span style={{marginLeft:10,background:"#fef3c7",color:"#92400e",fontSize:13,fontWeight:700,padding:"3px 10px",borderRadius:999}}>
+              {pending.length} pending
+            </span>
+          </h3>
+          <button style={{...toggleBtn,background:"#92400e"}} onClick={()=>setShowPending(p=>!p)}>
+            {showPending?"▲ Hide":"▼ Show All"}
+          </button>
+        </div>
+
+        {showPending && (
+          pending.length === 0
+          ? <p style={{color:"#aaa",fontSize:14}}>Koi pending order nahi.</p>
+          : <div style={{display:"flex",flexDirection:"column",gap:14}}>
+              {pending.map(o=>{
+                const allSellers=[...(o.citySellers||[]),...(o.thokSellers||[])].filter(s=>s.name||s.phone);
+                return (
+                  <div key={o._id} style={{...dCard,borderLeftColor:"#f59e0b"}}>
+                    <div style={dHeader}>
+                      <div>
+                        <span style={{...dDate,color:"#92400e"}}>{fmtDateTime(o.createdAt)}</span>
+                        <span style={dLoc}>📍 {o.location||"—"}</span>
+                      </div>
+                      <div style={{textAlign:"right"}}>
+                        <span style={{...dTotal,color:"#92400e"}}>₹{o.totalPrice}</span>
+                        <div style={{marginTop:4}}>
+                          <span style={{fontSize:11,background:"#fef3c7",color:"#92400e",padding:"2px 8px",borderRadius:999,fontWeight:700}}>⏳ Pending</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div style={dGrid}>
+                      <div style={dBlock}>
+                        <p style={dBlockTitle}>👤 Buyer</p>
+                        <p style={dName}>{o.name||"—"}</p>
+                        <p style={dPhone}>📞 {o.phone||"—"}</p>
+                        {o.address&&<p style={dAddr}>🏠 {o.address}</p>}
+                      </div>
+                      <div style={dBlock}>
+                        <p style={dBlockTitle}>🧑‍🌾 Seller(s)</p>
+                        {allSellers.length===0
+                          ?<p style={{color:"#aaa",fontSize:13}}>Info nahi</p>
+                          :allSellers.map((s,i)=>(
+                            <div key={i} style={{marginBottom:6}}>
+                              <p style={dName}>{s.name||"—"}</p>
+                              {s.phone&&<p style={dPhone}>📞 {s.phone}</p>}
+                            </div>
+                          ))
+                        }
+                      </div>
+                      <div style={dBlock}>
+                        <p style={dBlockTitle}>📦 Items</p>
+                        {(o.items||[]).map((x,i)=>(
+                          <p key={i} style={dItem}>• {x.name} × {x.qty}</p>
+                        ))}
+                        <div style={{marginTop:8,display:"flex",gap:8,flexWrap:"wrap"}}>
+                          <span style={{...dAmtBox,background:"#fef3c7",color:"#92400e"}}>Adv: ₹{o.advancePaid||0}</span>
+                          <span style={{...dAmtBox,background:"#fff7ed",color:"#c2410c"}}>Baaki: ₹{o.totalPrice-(o.advancePaid||0)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+        )}
+      </div>
+
       {/* DELIVERED ORDERS HISTORY */}
       <div style={{marginTop:40}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:10}}>
@@ -132,7 +211,7 @@ export default function AdminDashboard(){
                     {/* Header row */}
                     <div style={dHeader}>
                       <div>
-                        <span style={dDate}>{fmtDate(o.createdAt)}</span>
+                        <span style={dDate}>{fmtDateTime(o.createdAt)}</span>
                         <span style={dLoc}>📍 {o.location||"—"}</span>
                       </div>
                       <span style={dTotal}>₹{o.totalPrice}</span>

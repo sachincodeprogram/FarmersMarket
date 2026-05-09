@@ -118,10 +118,38 @@ router.get("/user/:uid", async (req, res) => {
 });
 
 
-// ADMIN PENDING (sab cities ke orders)
+// ADMIN PENDING (sab cities ke orders) — seller info enriched
 router.get("/admin", async (req, res) => {
-  const orders = await Order.find({ status: "pending" }).sort({ createdAt: -1 });
-  res.json(orders);
+  try {
+    const orders = await Order.find({ status: "pending" }).sort({ createdAt: -1 });
+
+    // Enrich old orders that don't have citySellers saved yet
+    const needsEnrich = orders.filter(o => (!o.citySellers || o.citySellers.length === 0) && o.items?.length > 0);
+    if (needsEnrich.length > 0) {
+      const allSellerIds = [...new Set(
+        needsEnrich.flatMap(o => o.items.map(i => i.sellerId).filter(Boolean))
+      )];
+      const users = await User.find({ uid: { $in: allSellerIds } });
+      const userMap = {};
+      users.forEach(u => { userMap[u.uid] = { name: u.name || "", phone: u.phone || "", sellerType: u.sellerType || "city_seller" }; });
+
+      const enriched = orders.map(o => {
+        const obj = o.toObject();
+        if (!obj.citySellers || obj.citySellers.length === 0) {
+          const ids = [...new Set((obj.items || []).map(i => i.sellerId).filter(Boolean))];
+          obj.citySellers = ids
+            .filter(id => userMap[id] && userMap[id].sellerType !== "thok_seller")
+            .map(id => ({ sellerId: id, name: userMap[id].name, phone: userMap[id].phone }));
+        }
+        return obj;
+      });
+      return res.json(enriched);
+    }
+
+    res.json(orders.map(o => o.toObject()));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 
