@@ -6,11 +6,15 @@ import axios from "axios";
 const API = import.meta.env.VITE_API;
 
 export default function Bag() {
-  const [items, setItems]       = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [paying, setPaying]     = useState(false);
-  const [step, setStep]         = useState("bag");   // "bag" | "success"
+  const [items, setItems]         = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [paying, setPaying]       = useState(false);
+  const [step, setStep]           = useState("bag");   // "bag" | "success"
   const [lastOrder, setLastOrder] = useState(null);
+  const [rewardInput, setRewardInput]   = useState("");
+  const [rewardApplied, setRewardApplied] = useState(false);
+  const [rewardErr, setRewardErr]       = useState("");
+  const [rewardChecking, setRewardChecking] = useState(false);
 
   useEffect(() => { fetchBag(); }, []);
 
@@ -23,6 +27,47 @@ export default function Bag() {
   async function removeOneQty(item) {
     await removeQtyApi(item.productId, item.price);
     fetchBag();
+  }
+
+  async function applyRewardCode() {
+    const code = rewardInput.trim().toUpperCase();
+    if (!code) return;
+    try {
+      setRewardChecking(true);
+      setRewardErr("");
+      const uid = auth.currentUser?.uid;
+      const { data } = await axios.post(`${API}/api/rewards/validate`, { code, uid });
+      if (data.valid) {
+        setRewardApplied(true);
+        setRewardErr("");
+      } else {
+        setRewardErr(data.error || "Code invalid hai");
+      }
+    } catch (err) {
+      setRewardErr(err.response?.data?.error || "Code invalid hai");
+    } finally {
+      setRewardChecking(false);
+    }
+  }
+
+  async function handleFreeOrder() {
+    if (paying) return;
+    try {
+      setPaying(true);
+      const uid  = auth.currentUser?.uid;
+      const city = localStorage.getItem("fm_city") || "";
+      const { data } = await axios.post(`${API}/api/orders/create`, {
+        uid, advance: 0, totalPrice, city,
+        rewardCode: rewardInput.trim().toUpperCase(),
+      });
+      const { data: orders } = await axios.get(`${API}/api/orders/user/${uid}`);
+      setLastOrder(Array.isArray(orders) && orders.length > 0 ? orders[0] : null);
+      setStep("success");
+    } catch (err) {
+      alert("Order place nahi hua. Dobara try karo.");
+    } finally {
+      setPaying(false);
+    }
   }
 
   const totalPrice  = items.reduce((s, i) => s + (i.price || 0), 0);
@@ -235,16 +280,56 @@ export default function Bag() {
                   🔒 Sirf advance abhi pay karo — Your Order ke baad kisan ki Details dikhegi. Baaki payment delivery ke waqt kisan ko dena hoga.
                 </p>
 
-                <button
-                  className="bag-confirm-btn"
-                  onClick={handleConfirmOrder}
-                  disabled={paying}
-                >
-                  {paying
-                    ? <><span className="btn-spinner" /> Processing...</>
-                    : <>✅ Confirm Order — ₹{payNow} Pay Karo</>
-                  }
-                </button>
+                {/* Reward Code */}
+                {!rewardApplied ? (
+                  <div className="bag-reward-wrap">
+                    <p className="bag-reward-label">🎁 Reward Code Hai?</p>
+                    <div className="bag-reward-row">
+                      <input
+                        className="bag-reward-input"
+                        placeholder="KISANXXXXXX"
+                        value={rewardInput}
+                        onChange={e => { setRewardInput(e.target.value); setRewardErr(""); }}
+                      />
+                      <button
+                        className="bag-reward-btn"
+                        onClick={applyRewardCode}
+                        disabled={rewardChecking || !rewardInput.trim()}
+                      >
+                        {rewardChecking ? "..." : "Apply"}
+                      </button>
+                    </div>
+                    {rewardErr && <p className="bag-reward-err">❌ {rewardErr}</p>}
+                  </div>
+                ) : (
+                  <div className="bag-reward-applied">
+                    🎉 Reward Code Apply! Yeh order bilkul FREE hai — koi advance nahi!
+                  </div>
+                )}
+
+                {rewardApplied ? (
+                  <button
+                    className="bag-confirm-btn bag-free-btn"
+                    onClick={handleFreeOrder}
+                    disabled={paying}
+                  >
+                    {paying
+                      ? <><span className="btn-spinner" /> Placing...</>
+                      : <>🎁 Free Order Place Karo</>
+                    }
+                  </button>
+                ) : (
+                  <button
+                    className="bag-confirm-btn"
+                    onClick={handleConfirmOrder}
+                    disabled={paying}
+                  >
+                    {paying
+                      ? <><span className="btn-spinner" /> Processing...</>
+                      : <>✅ Confirm Order — ₹{payNow} Pay Karo</>
+                    }
+                  </button>
+                )}
 
               </div>
             </div>
@@ -437,5 +522,38 @@ const css = `
     padding:14px 32px; border-radius:14px; text-decoration:none;
     font-weight:800; font-size:15px;
     box-shadow:0 4px 14px rgba(22,163,74,.3);
+  }
+
+  /* Reward code */
+  .bag-reward-wrap  { margin-bottom:16px; }
+  .bag-reward-label { font-size:13px; font-weight:700; color:#7c3aed; margin-bottom:8px; }
+  .bag-reward-row   { display:flex; gap:8px; }
+  .bag-reward-input {
+    flex:1; padding:11px 14px; border:1.5px solid #ddd8fe;
+    border-radius:10px; font-family:'Nunito',sans-serif; font-size:14px;
+    outline:none; letter-spacing:1px; text-transform:uppercase;
+  }
+  .bag-reward-input:focus { border-color:#7c3aed; }
+  .bag-reward-btn {
+    padding:11px 18px; background:#7c3aed; color:#fff;
+    border:none; border-radius:10px; font-family:'Nunito',sans-serif;
+    font-weight:700; font-size:14px; cursor:pointer; white-space:nowrap;
+  }
+  .bag-reward-btn:disabled { opacity:0.5; cursor:not-allowed; }
+  .bag-reward-err { font-size:12px; color:#dc2626; margin-top:6px; font-weight:600; }
+
+  .bag-reward-applied {
+    background:#f0fdf4; border:1.5px solid #16a34a;
+    border-radius:12px; padding:12px 14px;
+    font-size:13px; font-weight:700; color:#15803d;
+    margin-bottom:16px; text-align:center;
+  }
+
+  .bag-free-btn {
+    background:linear-gradient(135deg,#7c3aed,#6d28d9) !important;
+    box-shadow:0 6px 20px rgba(124,58,237,.35) !important;
+  }
+  .bag-free-btn:hover:not(:disabled) {
+    box-shadow:0 10px 28px rgba(124,58,237,.45) !important;
   }
 `;

@@ -13,7 +13,8 @@ const cartRoutes = require("./routes/cartRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const userRoutes = require("./routes/userRoutes");
 const orderRoutes = require("./routes/orderRoutes");
-const storeRoute = require("./routes/store");
+const storeRoute    = require("./routes/store");
+const rewardRoutes  = require("./routes/rewardRoutes");
 
 const app = express();
 
@@ -42,7 +43,8 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/payment", paymentRoutes);
-app.use("/api/store", storeRoute);
+app.use("/api/store",   storeRoute);
+app.use("/api/rewards", rewardRoutes);
 
 // MongoDB
 mongoose

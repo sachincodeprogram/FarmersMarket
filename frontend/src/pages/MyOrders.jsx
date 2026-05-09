@@ -6,8 +6,9 @@ const API = import.meta.env.VITE_API;
 
 export default function MyOrders(){
 
-  const [orders,setOrders]=useState([]);
-  const [screen,setScreen]=useState(window.innerWidth);
+  const [orders,setOrders]       = useState([]);
+  const [rewards,setRewards]     = useState([]);
+  const [screen,setScreen]       = useState(window.innerWidth);
 
   // ✅ Only for responsiveness (logic untouched)
   useEffect(()=>{
@@ -20,11 +21,11 @@ export default function MyOrders(){
     auth.onAuthStateChanged(async(user)=>{
       if(!user) return;
 
-      const res = await axios.get(
-        `${API}/api/orders/user/`+user.uid
-      );
+      const res = await axios.get(`${API}/api/orders/user/` + user.uid);
+      setOrders(res.data.filter(o => o.totalPrice > 0));
 
-      setOrders(res.data.filter(o=>o.totalPrice>0));
+      const rRes = await axios.get(`${API}/api/rewards/my/` + user.uid);
+      setRewards(Array.isArray(rRes.data) ? rRes.data : []);
     });
   },[]);
 
@@ -63,6 +64,28 @@ export default function MyOrders(){
     <div style={wrap}>
 
       <h2 style={title}>📦 My Orders</h2>
+
+      {/* Reward codes */}
+      {rewards.length > 0 && (
+        <div style={rewardBox}>
+          <p style={rewardTitle}>🎁 Aapke Reward Codes</p>
+          <p style={rewardSub}>Har 3 orders ke baad ek free order milta hai! Bag mein jake code apply karo.</p>
+          {rewards.map(r => (
+            <div key={r._id} style={rewardRow}>
+              <span style={rewardCode}>{r.code}</span>
+              <button
+                style={copyBtn}
+                onClick={() => {
+                  navigator.clipboard.writeText(r.code);
+                  alert("Code copy ho gaya: " + r.code);
+                }}
+              >
+                📋 Copy
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {orders.map(o=>(
 
@@ -241,6 +264,26 @@ const thokName={
   fontSize:"14px",
   color:"#374151",
   fontWeight:"600"
+};
+
+const rewardBox={
+  background:"#faf5ff",
+  border:"1.5px solid #d8b4fe",
+  borderRadius:16,
+  padding:"18px 20px",
+  marginBottom:24
+};
+const rewardTitle={ fontWeight:800, fontSize:16, color:"#7c3aed", marginBottom:6 };
+const rewardSub={ fontSize:13, color:"#6b7280", marginBottom:14 };
+const rewardRow={ display:"flex", alignItems:"center", gap:12, marginBottom:10 };
+const rewardCode={
+  fontFamily:"monospace", fontSize:18, fontWeight:800,
+  color:"#6d28d9", letterSpacing:2,
+  background:"#ede9fe", padding:"8px 16px", borderRadius:10
+};
+const copyBtn={
+  padding:"8px 14px", background:"#7c3aed", color:"#fff",
+  border:"none", borderRadius:10, cursor:"pointer", fontWeight:700, fontSize:13
 };
 
 const thokPhone={

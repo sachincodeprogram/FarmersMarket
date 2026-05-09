@@ -1,13 +1,14 @@
-const router = require("express").Router();
-const Order = require("../models/Order");
-const BagItem = require("../models/BagItem");
-const User = require("../models/User");
-const Product = require("../models/Product");
+const router      = require("express").Router();
+const Order       = require("../models/Order");
+const BagItem     = require("../models/BagItem");
+const User        = require("../models/User");
+const Product     = require("../models/Product");
+const RewardCode  = require("../models/RewardCode");
 
 // CREATE ORDER FROM BAG
 router.post("/create", async (req, res) => {
 
-  const { uid, advance, city } = req.body;
+  const { uid, advance, city, rewardCode } = req.body;
 
   const user = await User.findOne({ uid });
   const bags = await BagItem.find({ uid });
@@ -30,26 +31,48 @@ router.post("/create", async (req, res) => {
     }
   } catch (_) {}
 
-  const totalQty = bags.reduce((s, i) => s + (i.qty || 0), 0);
-  const totalPrice = bags.reduce((s, i) => s + (i.price || 0), 0);
+  const totalQty   = bags.reduce((s, i) => s + (i.qty   || 0), 0);
+  const totalPrice  = bags.reduce((s, i) => s + (i.price || 0), 0);
+
+  // Reward code check — if valid, advance becomes 0
+  let finalAdvance = advance || 0;
+  if (rewardCode) {
+    const reward = await RewardCode.findOne({
+      code: rewardCode.trim().toUpperCase(),
+      uid,
+      used: false
+    });
+    if (reward) {
+      await RewardCode.updateOne({ _id: reward._id }, { $set: { used: true } });
+      finalAdvance = 0;
+    }
+  }
 
   await Order.create({
     uid,
-    name: user.name,
-    phone: user.phone,
-    address: user.address,
-    items: bags,
+    name:        user.name,
+    phone:       user.phone,
+    address:     user.address,
+    items:       bags,
     totalQty,
     totalPrice,
-    advancePaid: advance,
-    location: city || "",
+    advancePaid: finalAdvance,
+    location:    city || "",
     thokSellers,
-    status: "pending"
+    status:      "pending"
   });
 
   await BagItem.deleteMany({ uid });
 
-  res.json({ success: true });
+  // Har 3 orders ke baad ek reward code generate karo
+  const orderCount = await Order.countDocuments({ uid });
+  let newRewardCode = null;
+  if (orderCount > 0 && orderCount % 3 === 0) {
+    newRewardCode = "KISAN" + Math.random().toString(36).substring(2, 8).toUpperCase();
+    await RewardCode.create({ code: newRewardCode, uid });
+  }
+
+  res.json({ success: true, rewardCode: newRewardCode });
 });
 
 
