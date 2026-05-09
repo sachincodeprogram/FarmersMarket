@@ -11,24 +11,19 @@ const CITIES = [
 
 export default function AdminManageSellers() {
 
-  const [users, setUsers] = useState([]);
-  const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [msg, setMsg] = useState("");
+  const [users, setUsers]           = useState([]);
+  const [search, setSearch]         = useState("");
+  const [loading, setLoading]       = useState(true);
+  const [toast, setToast]           = useState({ msg: "", ok: true });
+  const [actionUid, setActionUid]   = useState(""); // which uid is in action
+  const [formMap, setFormMap]       = useState({}); // { uid: { city, sellerType, mode: "assign"|"change" } }
 
-  // ✅ FIX: selectedUid + selectedCity ek saath object mein rakho
-  // Pehle ek shared selectedCity thi — agar ek user ke liye select karo
-  // aur dusre ke liye bhi select karo, state mix ho jaati thi.
-  // Ab har user ka apna city dropdown hai: cityMap[uid] = "Delhi"
-  const [cityMap, setCityMap] = useState({});           // { uid: "Delhi" }
-  const [sellerTypeMap, setSellerTypeMap] = useState({}); // { uid: "city_seller"|"thok_seller" }
-  const [selectedUid, setSelectedUid] = useState("");
-  const [changeTypeUid, setChangeTypeUid] = useState(""); // existing seller ka type change
-  const [actionLoading, setActionLoading] = useState(false);
+  useEffect(() => { loadUsers(); }, []);
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
+  function showToast(msg, ok = true) {
+    setToast({ msg, ok });
+    setTimeout(() => setToast({ msg: "", ok: true }), 3000);
+  }
 
   async function loadUsers() {
     try {
@@ -36,335 +31,238 @@ export default function AdminManageSellers() {
       const res = await axios.get(`${API}/api/users`);
       setUsers(res.data);
     } catch (err) {
-      console.log(err);
+      showToast("❌ Users load nahi hue", false);
     } finally {
       setLoading(false);
     }
   }
 
-  // ✅ FIX: cityMap[uid] se city lo — shared state nahi
-  async function assignSeller(uid) {
-    const city       = cityMap[uid] || "";
-    const sellerType = sellerTypeMap[uid] || "city_seller";
-
-    if (!city) {
-      setMsg("❌ Pehle city/location chuniye");
-      return;
-    }
-
-    try {
-      setActionLoading(true);
-      setMsg("");
-      const res = await axios.post(`${API}/api/users/assign-seller`, {
-        uid,
-        location: city,
-        sellerType
-      });
-      setMsg("✅ " + res.data.message);
-      loadUsers();
-      setSelectedUid("");
-      setCityMap(prev => { const n = { ...prev }; delete n[uid]; return n; });
-      setSellerTypeMap(prev => { const n = { ...prev }; delete n[uid]; return n; });
-    } catch (err) {
-      setMsg("❌ Kuch gadbad hui, dobara try karo");
-    } finally {
-      setActionLoading(false);
-    }
+  function openForm(uid, mode, currentCity = "", currentType = "city_seller") {
+    setFormMap(prev => ({
+      ...prev,
+      [uid]: { city: currentCity, sellerType: currentType, mode }
+    }));
   }
 
-  async function changeSeller(uid) {
-    const currentUser = users.find(u => u.uid === uid);
-    const city        = cityMap[uid] || currentUser?.location || "";
-    const sellerType  = sellerTypeMap[uid] || currentUser?.sellerType || "city_seller";
+  function closeForm(uid) {
+    setFormMap(prev => { const n = { ...prev }; delete n[uid]; return n; });
+  }
+
+  async function saveForm(uid) {
+    const form = formMap[uid];
+    if (!form) return;
+
+    const { city, sellerType } = form;
 
     if (!city) {
-      setMsg("❌ Pehle city/location chuniye");
+      showToast("❌ Pehle city chuniye", false);
       return;
     }
 
     try {
-      setActionLoading(true);
-      setMsg("");
+      setActionUid(uid);
       const res = await axios.post(`${API}/api/users/assign-seller`, {
-        uid,
-        location: city,
-        sellerType
+        uid, location: city, sellerType
       });
-      setMsg("✅ " + res.data.message);
-      loadUsers();
-      setChangeTypeUid("");
-      setCityMap(prev => { const n = { ...prev }; delete n[uid]; return n; });
-      setSellerTypeMap(prev => { const n = { ...prev }; delete n[uid]; return n; });
+      showToast("✅ " + res.data.message, true);
+      closeForm(uid);
+      await loadUsers();
     } catch (err) {
-      setMsg("❌ Kuch gadbad hui, dobara try karo");
+      showToast("❌ Save nahi hua — " + (err.response?.data?.error || err.message), false);
     } finally {
-      setActionLoading(false);
+      setActionUid("");
     }
   }
 
   async function removeSeller(uid, name) {
     if (!window.confirm(`${name} ka seller role remove karna chahte ho?`)) return;
-
     try {
-      setActionLoading(true);
-      setMsg("");
+      setActionUid(uid);
       await axios.post(`${API}/api/users/remove-seller`, { uid });
-      setMsg("✅ Seller role remove ho gaya");
-      loadUsers();
+      showToast("✅ Seller role remove ho gaya", true);
+      await loadUsers();
     } catch (err) {
-      setMsg("❌ Kuch gadbad hui");
+      showToast("❌ Remove nahi hua", false);
     } finally {
-      setActionLoading(false);
+      setActionUid("");
     }
   }
 
-  const filtered = users.filter(u =>
+  const filtered     = users.filter(u =>
     (u.name || "").toLowerCase().includes(search.toLowerCase()) ||
-    (u.phone || "").includes(search) ||
-    (u.uid || "").includes(search)
+    (u.phone || "").includes(search)
   );
-
   const sellers      = filtered.filter(u => u.role === "seller");
   const citySellers  = sellers.filter(u => !u.sellerType || u.sellerType === "city_seller");
   const thokSellers  = sellers.filter(u => u.sellerType === "thok_seller");
   const normalUsers  = filtered.filter(u => u.role !== "seller" && u.role !== "admin");
 
-  if (loading) {
-    return (
-      <div style={centerBox}>
-        <p>⏳ Users load ho rahe hain...</p>
-      </div>
-    );
-  }
+  if (loading) return <div style={centerBox}><p>⏳ Load ho raha hai...</p></div>;
 
   return (
     <div style={wrap}>
 
-      <h2 style={title}>👥 Sellers Manage Karo</h2>
-
-      {/* Stats */}
-      <div style={statsRow}>
-        <StatCard label="Total Users"    value={users.length}        color="#3b82f6" />
-        <StatCard label="City Sellers"   value={citySellers.length}  color="#16a34a" />
-        <StatCard label="Thok Mandi"     value={thokSellers.length}  color="#f97316" />
-        <StatCard label="Normal Users"   value={normalUsers.length}  color="#f59e0b" />
-      </div>
-
-      {/* Message */}
-      {msg && (
+      {/* TOAST */}
+      {toast.msg && (
         <div style={{
-          ...msgBox,
-          background: msg.startsWith("✅") ? "#f0fdf4" : "#fef2f2",
-          color:      msg.startsWith("✅") ? "#16a34a" : "#dc2626"
+          ...toastStyle,
+          background: toast.ok ? "#f0fdf4" : "#fef2f2",
+          color:      toast.ok ? "#16a34a" : "#dc2626",
+          border:     `1px solid ${toast.ok ? "#c6e8c6" : "#fecaca"}`
         }}>
-          {msg}
+          {toast.msg}
         </div>
       )}
 
-      {/* Search */}
+      <h2 style={titleStyle}>👥 Sellers Manage Karo</h2>
+
+      {/* STATS */}
+      <div style={statsRow}>
+        <StatCard label="Total Users"  value={users.length}       color="#3b82f6" />
+        <StatCard label="City Sellers" value={citySellers.length} color="#16a34a" />
+        <StatCard label="Thok Mandi"   value={thokSellers.length} color="#f97316" />
+        <StatCard label="Normal Users" value={normalUsers.length} color="#f59e0b" />
+      </div>
+
+      {/* SEARCH */}
       <input
         style={searchInput}
-        placeholder="🔍 Naam, phone ya UID se dhundho..."
+        placeholder="🔍 Naam ya phone se dhundho..."
         value={search}
         onChange={e => setSearch(e.target.value)}
       />
 
-      {/* ── CITY SELLERS ── */}
-      <h3 style={sectionTitle}>🛒 City Sellers ({citySellers.length})</h3>
-
-      {citySellers.length === 0 ? (
-        <div style={emptyBox}><p>Abhi koi City Seller nahi hai</p></div>
-      ) : (
-        citySellers.map(u => (
-          <div key={u._id} style={userCard}>
-            <div style={userInfo}>
-              <b style={{ fontSize: 16 }}>{u.name || "—"}</b>
-              <p style={subText}>📞 {u.phone || "—"}</p>
-              <p style={subText}>🆔 {u.uid}</p>
-              <div style={sellerBadge}>🛒 City Seller — 📍 {u.location || "Location nahi"}</div>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
-              {changeTypeUid === u.uid ? (
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                  <select
-                    style={{ ...citySelect, background: "#fff7ed", borderColor: "#f97316" }}
-                    value={sellerTypeMap[u.uid] || "city_seller"}
-                    onChange={e => setSellerTypeMap(prev => ({ ...prev, [u.uid]: e.target.value }))}
-                  >
-                    <option value="city_seller">🛒 City Seller</option>
-                    <option value="thok_seller">🏭 Thok Mandi</option>
-                  </select>
-                  <select
-                    style={citySelect}
-                    value={cityMap[u.uid] || u.location || ""}
-                    onChange={e => setCityMap(prev => ({ ...prev, [u.uid]: e.target.value }))}
-                  >
-                    <option value="">📍 City chuniye</option>
-                    {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                  <button style={confirmBtn} onClick={() => changeSeller(u.uid)} disabled={actionLoading}>
-                    {actionLoading ? "⏳" : "✅ Save"}
-                  </button>
-                  <button style={cancelBtn} onClick={() => { setChangeTypeUid(""); setCityMap(prev => { const n={...prev}; delete n[u.uid]; return n; }); setSellerTypeMap(prev => { const n={...prev}; delete n[u.uid]; return n; }); }}>
-                    Ruko
-                  </button>
-                </div>
-              ) : (
-                <button style={changeBtn} onClick={() => { setChangeTypeUid(u.uid); setMsg(""); }} disabled={actionLoading}>
-                  🔄 Type Badlo
-                </button>
-              )}
-              <button style={removeBtn} onClick={() => removeSeller(u.uid, u.name)} disabled={actionLoading}>
-                ❌ Remove Seller
-              </button>
-            </div>
-          </div>
-        ))
-      )}
-
       {/* ── THOK MANDI SELLERS ── */}
-      <h3 style={{ ...sectionTitle, marginTop: 28 }}>🏭 Thok Mandi Sellers ({thokSellers.length})</h3>
-
-      {thokSellers.length === 0 ? (
-        <div style={emptyBox}><p>Abhi koi Thok Mandi Seller nahi hai</p></div>
-      ) : (
-        thokSellers.map(u => (
-          <div key={u._id} style={userCard}>
-            <div style={userInfo}>
-              <b style={{ fontSize: 16 }}>{u.name || "—"}</b>
-              <p style={subText}>📞 {u.phone || "—"}</p>
-              <p style={subText}>🆔 {u.uid}</p>
-              <div style={thokBadge}>🏭 Thok Mandi — 📍 {u.location || "Location nahi"}</div>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
-              {changeTypeUid === u.uid ? (
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                  <select
-                    style={{ ...citySelect, background: "#fff7ed", borderColor: "#f97316" }}
-                    value={sellerTypeMap[u.uid] || "thok_seller"}
-                    onChange={e => setSellerTypeMap(prev => ({ ...prev, [u.uid]: e.target.value }))}
-                  >
-                    <option value="city_seller">🛒 City Seller</option>
-                    <option value="thok_seller">🏭 Thok Mandi</option>
-                  </select>
-                  <select
-                    style={citySelect}
-                    value={cityMap[u.uid] || u.location || ""}
-                    onChange={e => setCityMap(prev => ({ ...prev, [u.uid]: e.target.value }))}
-                  >
-                    <option value="">📍 City chuniye</option>
-                    {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                  <button style={confirmBtn} onClick={() => changeSeller(u.uid)} disabled={actionLoading}>
-                    {actionLoading ? "⏳" : "✅ Save"}
-                  </button>
-                  <button style={cancelBtn} onClick={() => { setChangeTypeUid(""); setCityMap(prev => { const n={...prev}; delete n[u.uid]; return n; }); setSellerTypeMap(prev => { const n={...prev}; delete n[u.uid]; return n; }); }}>
-                    Ruko
-                  </button>
-                </div>
-              ) : (
-                <button style={changeBtn} onClick={() => { setChangeTypeUid(u.uid); setMsg(""); }} disabled={actionLoading}>
-                  🔄 Type Badlo
-                </button>
-              )}
-              <button style={removeBtn} onClick={() => removeSeller(u.uid, u.name)} disabled={actionLoading}>
-                ❌ Remove Seller
-              </button>
-            </div>
-          </div>
+      <h3 style={{ ...sectionTitle, marginTop: 8 }}>🏭 Thok Mandi Sellers ({thokSellers.length})</h3>
+      {thokSellers.length === 0
+        ? <div style={emptyBox}>Abhi koi Thok Mandi Seller nahi hai</div>
+        : thokSellers.map(u => (
+          <UserCard
+            key={u._id} u={u}
+            form={formMap[u.uid]}
+            busy={actionUid === u.uid}
+            badgeStyle={thokBadge}
+            badgeLabel={`🏭 Thok Mandi — 📍 ${u.location || "—"}`}
+            onEdit={() => openForm(u.uid, "change", u.location, u.sellerType || "thok_seller")}
+            onClose={() => closeForm(u.uid)}
+            onSave={() => saveForm(u.uid)}
+            onRemove={() => removeSeller(u.uid, u.name)}
+            onFormChange={(field, val) =>
+              setFormMap(prev => ({ ...prev, [u.uid]: { ...prev[u.uid], [field]: val } }))
+            }
+          />
         ))
-      )}
+      }
+
+      {/* ── CITY SELLERS ── */}
+      <h3 style={{ ...sectionTitle, marginTop: 24 }}>🛒 City Sellers ({citySellers.length})</h3>
+      {citySellers.length === 0
+        ? <div style={emptyBox}>Abhi koi City Seller nahi hai</div>
+        : citySellers.map(u => (
+          <UserCard
+            key={u._id} u={u}
+            form={formMap[u.uid]}
+            busy={actionUid === u.uid}
+            badgeStyle={sellerBadge}
+            badgeLabel={`🛒 City Seller — 📍 ${u.location || "—"}`}
+            onEdit={() => openForm(u.uid, "change", u.location, u.sellerType || "city_seller")}
+            onClose={() => closeForm(u.uid)}
+            onSave={() => saveForm(u.uid)}
+            onRemove={() => removeSeller(u.uid, u.name)}
+            onFormChange={(field, val) =>
+              setFormMap(prev => ({ ...prev, [u.uid]: { ...prev[u.uid], [field]: val } }))
+            }
+          />
+        ))
+      }
 
       {/* ── NORMAL USERS ── */}
-      <h3 style={{ ...sectionTitle, marginTop: 32 }}>
-        👤 Normal Users ({normalUsers.length})
-      </h3>
-
-      {normalUsers.length === 0 ? (
-        <div style={emptyBox}>
-          <p>Koi user nahi mila</p>
-        </div>
-      ) : (
-        normalUsers.map(u => (
-          <div key={u._id} style={userCard}>
-
-            <div style={userInfo}>
-              <b style={{ fontSize: 16 }}>{u.name || "—"}</b>
-              <p style={subText}>📞 {u.phone || "—"}</p>
-              <p style={subText}>🆔 {u.uid}</p>
-              <div style={userBadge}>👤 User</div>
-            </div>
-
-            {/* ✅ FIX: Assign Seller Panel — har user ka apna cityMap[uid] */}
-            <div style={assignPanel}>
-
-              {selectedUid === u.uid ? (
-
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-
-                  {/* Seller Type */}
-                  <select
-                    style={{ ...citySelect, background: "#fff7ed", borderColor: "#f97316" }}
-                    value={sellerTypeMap[u.uid] || "city_seller"}
-                    onChange={e =>
-                      setSellerTypeMap(prev => ({ ...prev, [u.uid]: e.target.value }))
-                    }
-                  >
-                    <option value="city_seller">🛒 City Seller</option>
-                    <option value="thok_seller">🏭 Thok Mandi</option>
-                  </select>
-
-                  {/* City / Location */}
-                  <select
-                    style={citySelect}
-                    value={cityMap[u.uid] || ""}
-                    onChange={e =>
-                      setCityMap(prev => ({ ...prev, [u.uid]: e.target.value }))
-                    }
-                  >
-                    <option value="">📍 City chuniye</option>
-                    {CITIES.map(c => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-
-                  <button
-                    style={confirmBtn}
-                    onClick={() => assignSeller(u.uid)}
-                    disabled={actionLoading}
-                  >
-                    {actionLoading ? "⏳" : "✅ Confirm"}
-                  </button>
-
-                  <button
-                    style={cancelBtn}
-                    onClick={() => {
-                      setSelectedUid("");
-                      setCityMap(prev => { const n = { ...prev }; delete n[u.uid]; return n; });
-                      setSellerTypeMap(prev => { const n = { ...prev }; delete n[u.uid]; return n; });
-                    }}
-                  >
-                    Ruko
-                  </button>
-                </div>
-
-              ) : (
-
-                <button
-                  style={assignBtn}
-                  onClick={() => { setSelectedUid(u.uid); setMsg(""); }}
-                >
-                  🛒 Seller Banao
-                </button>
-
-              )}
-
-            </div>
-
-          </div>
+      <h3 style={{ ...sectionTitle, marginTop: 24 }}>👤 Normal Users ({normalUsers.length})</h3>
+      {normalUsers.length === 0
+        ? <div style={emptyBox}>Koi normal user nahi</div>
+        : normalUsers.map(u => (
+          <UserCard
+            key={u._id} u={u}
+            form={formMap[u.uid]}
+            busy={actionUid === u.uid}
+            badgeStyle={userBadge}
+            badgeLabel="👤 User"
+            onEdit={() => openForm(u.uid, "assign", "", "city_seller")}
+            onClose={() => closeForm(u.uid)}
+            onSave={() => saveForm(u.uid)}
+            onRemove={null}
+            onFormChange={(field, val) =>
+              setFormMap(prev => ({ ...prev, [u.uid]: { ...prev[u.uid], [field]: val } }))
+            }
+          />
         ))
-      )}
+      }
 
+    </div>
+  );
+}
+
+function UserCard({ u, form, busy, badgeStyle, badgeLabel, onEdit, onClose, onSave, onRemove, onFormChange }) {
+  return (
+    <div style={userCard}>
+      <div style={userInfo}>
+        <b style={{ fontSize: 16 }}>{u.name || "—"}</b>
+        <p style={subText}>📞 {u.phone || "—"}</p>
+        <p style={{ ...subText, fontSize: 11, color: "#bbb" }}>UID: {u.uid}</p>
+        <div style={badgeStyle}>{badgeLabel}</div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
+        {form ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              {/* Seller Type */}
+              <select
+                style={{ ...selectStyle, borderColor: "#f97316", background: "#fff7ed" }}
+                value={form.sellerType}
+                onChange={e => onFormChange("sellerType", e.target.value)}
+              >
+                <option value="city_seller">🛒 City Seller</option>
+                <option value="thok_seller">🏭 Thok Mandi</option>
+              </select>
+
+              {/* City */}
+              <select
+                style={selectStyle}
+                value={form.city}
+                onChange={e => onFormChange("city", e.target.value)}
+              >
+                <option value="">📍 City chuniye</option>
+                {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <button style={confirmBtn} onClick={onSave} disabled={busy}>
+                {busy ? "⏳ Saving..." : "✅ Save"}
+              </button>
+              <button style={cancelBtn} onClick={onClose} disabled={busy}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              style={onRemove ? changeBtn : assignBtn}
+              onClick={onEdit}
+              disabled={busy}
+            >
+              {onRemove ? "🔄 Type Badlo" : "🛒 Seller Banao"}
+            </button>
+            {onRemove && (
+              <button style={removeBtn} onClick={onRemove} disabled={busy}>
+                ❌ Remove
+              </button>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -378,195 +276,38 @@ function StatCard({ label, value, color }) {
   );
 }
 
-/* ─── STYLES ─── */
+/* ── STYLES ── */
+const wrap        = { padding: 20, background: "#f3f4f6", minHeight: "100vh" };
+const centerBox   = { padding: 60, textAlign: "center" };
+const titleStyle  = { margin: "0 0 20px", fontSize: 22, color: "#15803d" };
 
-const wrap = {
-  padding: 20,
-  background: "#f3f4f6",
-  minHeight: "100vh"
+const toastStyle  = {
+  position: "fixed", top: 20, right: 20, zIndex: 9999,
+  padding: "14px 20px", borderRadius: 12, fontWeight: 700,
+  fontSize: 14, boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+  animation: "fadeIn 0.2s ease"
 };
 
-const centerBox = {
-  padding: 60,
-  textAlign: "center"
-};
+const statsRow    = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 14, marginBottom: 20 };
+const statCard    = { background: "#fff", padding: "14px 18px", borderRadius: 12, boxShadow: "0 2px 8px rgba(0,0,0,.08)" };
 
-const title = {
-  margin: "0 0 20px",
-  fontSize: 22,
-  color: "#15803d"
-};
+const searchInput = { width: "100%", padding: "12px 16px", borderRadius: 12, border: "1px solid #d1d5db", fontSize: 15, marginBottom: 20, boxSizing: "border-box" };
 
-const statsRow = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-  gap: 14,
-  marginBottom: 20
-};
+const sectionTitle = { fontSize: 16, fontWeight: 700, color: "#374151", marginBottom: 12 };
+const emptyBox     = { textAlign: "center", padding: 24, background: "#fff", borderRadius: 12, color: "#888", boxShadow: "0 2px 8px rgba(0,0,0,.06)", marginBottom: 12 };
 
-const statCard = {
-  background: "#fff",
-  padding: "14px 18px",
-  borderRadius: 12,
-  boxShadow: "0 2px 8px rgba(0,0,0,.08)"
-};
+const userCard  = { background: "#fff", padding: "16px 20px", borderRadius: 14, marginBottom: 12, boxShadow: "0 2px 8px rgba(0,0,0,.07)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 };
+const userInfo  = { flex: 1 };
+const subText   = { color: "#666", fontSize: 13, margin: "3px 0" };
 
-const msgBox = {
-  padding: "12px 16px",
-  borderRadius: 10,
-  fontWeight: 600,
-  fontSize: 14,
-  marginBottom: 16
-};
+const sellerBadge = { display: "inline-block", marginTop: 6, background: "#f0fdf4", border: "1px solid #16a34a", color: "#15803d", padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600 };
+const thokBadge   = { display: "inline-block", marginTop: 6, background: "#fff7ed", border: "1px solid #f97316", color: "#c2410c", padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600 };
+const userBadge   = { display: "inline-block", marginTop: 6, background: "#eff6ff", border: "1px solid #93c5fd", color: "#1d4ed8", padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600 };
 
-const searchInput = {
-  width: "100%",
-  padding: "12px 16px",
-  borderRadius: 12,
-  border: "1px solid #d1d5db",
-  fontSize: 15,
-  marginBottom: 24,
-  boxSizing: "border-box"
-};
+const selectStyle = { padding: "8px 12px", borderRadius: 8, border: "1px solid #16a34a", fontSize: 14, color: "#333", background: "#f0fdf4" };
 
-const sectionTitle = {
-  fontSize: 16,
-  fontWeight: 700,
-  color: "#374151",
-  marginBottom: 12
-};
-
-const emptyBox = {
-  textAlign: "center",
-  padding: 30,
-  background: "#fff",
-  borderRadius: 12,
-  color: "#888",
-  boxShadow: "0 2px 8px rgba(0,0,0,.06)"
-};
-
-const userCard = {
-  background: "#fff",
-  padding: "16px 20px",
-  borderRadius: 14,
-  marginBottom: 12,
-  boxShadow: "0 2px 8px rgba(0,0,0,.07)",
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  flexWrap: "wrap",
-  gap: 12
-};
-
-const userInfo = {
-  flex: 1
-};
-
-const subText = {
-  color: "#666",
-  fontSize: 13,
-  margin: "3px 0"
-};
-
-const sellerBadge = {
-  display: "inline-block",
-  marginTop: 6,
-  background: "#f0fdf4",
-  border: "1px solid #16a34a",
-  color: "#15803d",
-  padding: "4px 12px",
-  borderRadius: 20,
-  fontSize: 12,
-  fontWeight: 600
-};
-
-const thokBadge = {
-  display: "inline-block",
-  marginTop: 6,
-  background: "#fff7ed",
-  border: "1px solid #f97316",
-  color: "#c2410c",
-  padding: "4px 12px",
-  borderRadius: 20,
-  fontSize: 12,
-  fontWeight: 600
-};
-
-const userBadge = {
-  display: "inline-block",
-  marginTop: 6,
-  background: "#eff6ff",
-  border: "1px solid #93c5fd",
-  color: "#1d4ed8",
-  padding: "4px 12px",
-  borderRadius: 20,
-  fontSize: 12,
-  fontWeight: 600
-};
-
-const assignPanel = {
-  flexShrink: 0
-};
-
-const assignBtn = {
-  padding: "10px 18px",
-  background: "#16a34a",
-  color: "#fff",
-  border: "none",
-  borderRadius: 10,
-  cursor: "pointer",
-  fontWeight: 600,
-  fontSize: 14
-};
-
-const citySelect = {
-  padding: "8px 12px",
-  borderRadius: 8,
-  border: "1px solid #16a34a",
-  fontSize: 14,
-  color: "#333",
-  background: "#f0fdf4"
-};
-
-const confirmBtn = {
-  padding: "8px 14px",
-  background: "#16a34a",
-  color: "#fff",
-  border: "none",
-  borderRadius: 8,
-  cursor: "pointer",
-  fontWeight: 600,
-  fontSize: 14
-};
-
-const cancelBtn = {
-  padding: "8px 14px",
-  background: "#f3f4f6",
-  color: "#374151",
-  border: "1px solid #d1d5db",
-  borderRadius: 8,
-  cursor: "pointer",
-  fontSize: 14
-};
-
-const removeBtn = {
-  padding: "10px 16px",
-  background: "#fef2f2",
-  color: "#dc2626",
-  border: "1px solid #fca5a5",
-  borderRadius: 10,
-  cursor: "pointer",
-  fontWeight: 600,
-  fontSize: 14
-};
-
-const changeBtn = {
-  padding: "10px 16px",
-  background: "#eff6ff",
-  color: "#2563eb",
-  border: "1px solid #bfdbfe",
-  borderRadius: 10,
-  cursor: "pointer",
-  fontWeight: 600,
-  fontSize: 14
-};
+const assignBtn  = { padding: "10px 18px", background: "#16a34a", color: "#fff", border: "none", borderRadius: 10, cursor: "pointer", fontWeight: 600, fontSize: 14 };
+const changeBtn  = { padding: "10px 16px", background: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe", borderRadius: 10, cursor: "pointer", fontWeight: 600, fontSize: 14 };
+const removeBtn  = { padding: "10px 14px", background: "#fef2f2", color: "#dc2626", border: "1px solid #fca5a5", borderRadius: 10, cursor: "pointer", fontWeight: 600, fontSize: 14 };
+const confirmBtn = { padding: "9px 16px", background: "#16a34a", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 14 };
+const cancelBtn  = { padding: "9px 14px", background: "#f3f4f6", color: "#374151", border: "1px solid #d1d5db", borderRadius: 8, cursor: "pointer", fontSize: 14 };
