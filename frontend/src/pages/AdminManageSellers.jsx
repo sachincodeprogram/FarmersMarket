@@ -3,19 +3,17 @@ import axios from "axios";
 
 const API = import.meta.env.VITE_API;
 
-const CITIES = [
-  "Delhi","Mumbai","Kolkata","Chennai","Bangalore",
-  "Hyderabad","Pune","Ahmedabad","Jaipur","Lucknow","Noida","Gurgaon"
-];
-
 export default function AdminManageSellers() {
 
   const [users, setUsers]         = useState([]);
+  const [cities, setCities]       = useState([]);
+  const [newCity, setNewCity]     = useState("");
+  const [cityLoading, setCityLoading] = useState(false);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState("");
   const [toast, setToast]         = useState("");
   const [toastOk, setToastOk]     = useState(true);
-  const [formUid, setFormUid]     = useState("");       // which user's form is open
+  const [formUid, setFormUid]     = useState("");
   const [formCity, setFormCity]   = useState("");
   const [formType, setFormType]   = useState("city_seller");
   const [saving, setSaving]       = useState(false);
@@ -23,7 +21,41 @@ export default function AdminManageSellers() {
 
   useEffect(() => {
     fetchUsers();
+    fetchCities();
   }, []);
+
+  async function fetchCities() {
+    try {
+      const res = await axios.get(`${API}/api/cities`);
+      setCities(Array.isArray(res.data) ? res.data : []);
+    } catch (_) {}
+  }
+
+  async function addCity() {
+    const name = newCity.trim();
+    if (!name) return;
+    try {
+      setCityLoading(true);
+      await axios.post(`${API}/api/cities`, { name });
+      setNewCity("");
+      await fetchCities();
+      flash("✅ City add ho gayi: " + name, true);
+    } catch (e) {
+      flash("❌ " + (e.response?.data?.error || e.message), false);
+    } finally { setCityLoading(false); }
+  }
+
+  async function deleteCity(name) {
+    if (!window.confirm(`"${name}" city delete karna chahte ho? Is city ke sellers ka data safe rahega.`)) return;
+    try {
+      setCityLoading(true);
+      await axios.delete(`${API}/api/cities/${encodeURIComponent(name)}`);
+      await fetchCities();
+      flash("✅ City delete ho gayi: " + name, true);
+    } catch (e) {
+      flash("❌ " + (e.response?.data?.error || e.message), false);
+    } finally { setCityLoading(false); }
+  }
 
   async function fetchUsers() {
     try {
@@ -138,6 +170,53 @@ export default function AdminManageSellers() {
         👥 Sellers Manage Karo
       </h2>
 
+      {/* ── CITY MANAGEMENT ── */}
+      <div style={{ background:"#fff", borderRadius:16, padding:"20px 22px", marginBottom:24, boxShadow:"0 2px 10px rgba(0,0,0,.07)", borderTop:"4px solid #3b82f6" }}>
+        <h3 style={{ fontSize:16, fontWeight:800, color:"#1e40af", marginBottom:16 }}>
+          🏙️ Cities Manage Karo
+          <span style={{ marginLeft:10, background:"#eff6ff", color:"#1d4ed8", fontSize:13, fontWeight:700, padding:"3px 10px", borderRadius:999 }}>
+            {cities.length} cities
+          </span>
+        </h3>
+
+        {/* Add city */}
+        <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
+          <input
+            style={{ flex:1, minWidth:160, padding:"11px 14px", borderRadius:10, border:"1.5px solid #93c5fd", fontSize:14, outline:"none" }}
+            placeholder="Nayi city ka naam (e.g. Agra)"
+            value={newCity}
+            onChange={e => setNewCity(e.target.value)}
+            onKeyDown={e => { if(e.key === "Enter") addCity(); }}
+          />
+          <button
+            style={{ padding:"11px 22px", background:"#1d4ed8", color:"#fff", border:"none", borderRadius:10, fontWeight:700, fontSize:14, cursor:"pointer", opacity: cityLoading ? 0.6 : 1 }}
+            onClick={addCity}
+            disabled={cityLoading || !newCity.trim()}
+          >
+            + Add City
+          </button>
+        </div>
+
+        {/* City list */}
+        <div style={{ display:"flex", flexWrap:"wrap", gap:10 }}>
+          {cities.length === 0
+            ? <span style={{ color:"#aaa", fontSize:13 }}>Koi city nahi</span>
+            : cities.map(c => (
+              <div key={c} style={{ display:"flex", alignItems:"center", gap:8, background:"#eff6ff", border:"1px solid #bfdbfe", borderRadius:100, padding:"6px 14px" }}>
+                <span style={{ fontSize:13, fontWeight:700, color:"#1e40af" }}>📍 {c}</span>
+                <button
+                  style={{ background:"none", border:"none", cursor:"pointer", color:"#dc2626", fontWeight:800, fontSize:15, lineHeight:1, padding:"0 2px" }}
+                  onClick={() => deleteCity(c)}
+                  title={`${c} delete karo`}
+                >
+                  ×
+                </button>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+
       {/* STATS */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 14, marginBottom: 20 }}>
         {[
@@ -168,6 +247,7 @@ export default function AdminManageSellers() {
             badge={<Badge bg="#fff7ed" border="#f97316" color="#c2410c">🏭 Thok — 📍 {u.location || "—"}</Badge>}
             formOpen={formUid === u.uid}
             formCity={formCity} formType={formType}
+            cities={cities}
             saving={saving}
             onOpenForm={() => openForm(u.uid, u.location || "", u.sellerType || "thok_seller")}
             onCloseForm={closeForm}
@@ -187,6 +267,7 @@ export default function AdminManageSellers() {
             badge={<Badge bg="#f0fdf4" border="#16a34a" color="#15803d">🛒 City — 📍 {u.location || "—"}</Badge>}
             formOpen={formUid === u.uid}
             formCity={formCity} formType={formType}
+            cities={cities}
             saving={saving}
             onOpenForm={() => openForm(u.uid, u.location || "", u.sellerType || "city_seller")}
             onCloseForm={closeForm}
@@ -206,6 +287,7 @@ export default function AdminManageSellers() {
             badge={<Badge bg="#eff6ff" border="#93c5fd" color="#1d4ed8">👤 User</Badge>}
             formOpen={formUid === u.uid}
             formCity={formCity} formType={formType}
+            cities={cities}
             saving={saving}
             onOpenForm={() => openForm(u.uid, u.location || "", u.sellerType || "city_seller")}
             onCloseForm={closeForm}
@@ -243,7 +325,7 @@ function Badge({ bg, border, color, children }) {
   );
 }
 
-function Row({ u, badge, formOpen, formCity, formType, saving, onOpenForm, onCloseForm, onCityChange, onTypeChange, onSave, onRemove, editLabel }) {
+function Row({ u, badge, formOpen, formCity, formType, cities, saving, onOpenForm, onCloseForm, onCityChange, onTypeChange, onSave, onRemove, editLabel }) {
   return (
     <div style={{ background: "#fff", padding: "16px 20px", borderRadius: 14, marginBottom: 12, boxShadow: "0 2px 8px rgba(0,0,0,.07)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
 
@@ -273,7 +355,7 @@ function Row({ u, badge, formOpen, formCity, formType, saving, onOpenForm, onClo
                 onChange={e => onCityChange(e.target.value)}
               >
                 <option value="">📍 City chuniye</option>
-                {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                {(cities || []).map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div style={{ display: "flex", gap: 8 }}>

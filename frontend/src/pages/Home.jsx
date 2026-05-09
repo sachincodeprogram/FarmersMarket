@@ -3,18 +3,18 @@ import { addToBagApi } from "../api/bagApi";
 
 const API = import.meta.env.VITE_API;
 
-const CITIES = [
-  "Delhi","Mumbai","Kolkata","Chennai","Bangalore",
-  "Hyderabad","Pune","Ahmedabad","Jaipur","Lucknow","Noida","Gurgaon",
-];
-
 export default function Home() {
   const [products, setProducts]       = useState([]);
+  const [cities, setCities]           = useState([]);
   const [search, setSearch]           = useState("");
   const [city, setCity]               = useState(() => localStorage.getItem("fm_city") || "");
   const [sellerTab, setSellerTab]     = useState("city_seller"); // "city_seller" | "thok_seller"
   const [loading, setLoading]         = useState(false);
   const [toastId, setToastId]         = useState(null);
+
+  useEffect(() => {
+    fetch(`${API}/api/cities`).then(r => r.json()).then(d => setCities(Array.isArray(d) ? d : []));
+  }, []);
 
   useEffect(() => {
     if (city) fetchProducts(city, sellerTab);
@@ -511,7 +511,7 @@ export default function Home() {
             <div className="hm-controls">
               <select className="hm-city-select" value={city} onChange={handleCityChange}>
                 <option value="">📍 Apni city chuniye</option>
-                {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                {cities.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
               <input
                 className="hm-search"

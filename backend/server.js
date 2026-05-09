@@ -15,6 +15,7 @@ const userRoutes = require("./routes/userRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const storeRoute    = require("./routes/store");
 const rewardRoutes  = require("./routes/rewardRoutes");
+const cityRoutes    = require("./routes/cityRoutes");
 
 const app = express();
 
@@ -45,6 +46,7 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/store",   storeRoute);
 app.use("/api/rewards", rewardRoutes);
+app.use("/api/cities",  cityRoutes);
 
 // MongoDB
 mongoose
