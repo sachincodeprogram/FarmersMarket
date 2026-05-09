@@ -19,15 +19,15 @@ router.post("/create", async (req, res) => {
   // Thok Mandi sellers dhundo — order page mein contact show karne ke liye
   let thokSellers = [];
   try {
-    const productIds = [...new Set(bags.map(b => b.productId).filter(Boolean))];
-    const products = await Product.find({ _id: { $in: productIds } });
-    const sellerIds = [...new Set(products.map(p => p.sellerId).filter(Boolean))];
-    const thokUsers = await User.find({ uid: { $in: sellerIds }, sellerType: "thok_seller" });
-    thokSellers = thokUsers.map(s => ({
-      sellerId: s.uid,
-      name: s.name || "",
-      phone: s.phone || ""
-    }));
+    const sellerIds = [...new Set(bags.map(b => b.sellerId).filter(Boolean))];
+    if (sellerIds.length > 0) {
+      const thokUsers = await User.find({ uid: { $in: sellerIds }, sellerType: "thok_seller" });
+      thokSellers = thokUsers.map(s => ({
+        sellerId: s.uid,
+        name: s.name || "",
+        phone: s.phone || ""
+      }));
+    }
   } catch (_) {}
 
   const totalQty = bags.reduce((s, i) => s + (i.qty || 0), 0);

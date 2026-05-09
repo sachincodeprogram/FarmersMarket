@@ -59,6 +59,7 @@ export default function Home() {
         name: product.name,
         price: Number(product.price),
         image: product.image,
+        sellerId: product.sellerId || null,
       });
       setToastId(product._id);
       setTimeout(() => setToastId(null), 1400);
@@ -620,7 +621,7 @@ function SellerSection({ sellerId, group, city, toastId, onAddToBag, delay, isTh
           {isThok ? "🏭" : "🧑‍🌾"}
         </div>
         <div className="hm-seller-info">
-          <h3>{displayName}</h3>
+          <h3>{isThok ? "🏭 Thok Mandi" : displayName}</h3>
           <div className="hm-seller-meta">
             <span className="hm-seller-location">
               {isThok ? "🏭" : "📍"} {city}
