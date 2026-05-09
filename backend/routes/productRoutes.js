@@ -10,39 +10,40 @@ router.get("/", async (req, res) => {
 });
 
 // GET PRODUCTS BY LOCATION — ?type=city_seller|thok_seller filter optional
+// Sellers are looked up first (by User.location + User.sellerType) so home page
+// always reflects exactly what admin set in Manage Sellers.
 router.get("/location/:location", async (req, res) => {
   try {
-    const { type } = req.query; // "city_seller" | "thok_seller" | undefined
-    const products = await Product.find({ location: req.params.location });
+    const { type } = req.query;
+    const city = req.params.location;
 
-    const sellerIds = [...new Set(products.map(p => p.sellerId).filter(Boolean))];
-    const sellers = await User.find({ uid: { $in: sellerIds }, role: "seller" });
+    // Step 1: find active sellers in this city, filtered by type
+    const sellerFilter = { role: "seller", location: city };
+    if (type === "thok_seller")  sellerFilter.sellerType = "thok_seller";
+    if (type === "city_seller")  sellerFilter.sellerType = { $ne: "thok_seller" };
+
+    const sellers = await User.find(sellerFilter);
+    if (sellers.length === 0) return res.json([]);
 
     const sellerMap = {};
     sellers.forEach(s => {
       sellerMap[s.uid] = {
-        name: s.name || "Kisan",
-        phone: s.phone || "",
+        name:       s.name  || "Kisan",
+        phone:      s.phone || "",
         sellerType: s.sellerType || "city_seller",
       };
     });
 
-    // Only include products from active sellers (skip products of removed/non-existent sellers)
-    let enriched = products
-      .filter(p => p.sellerId && sellerMap[p.sellerId])
-      .map(p => ({
-        ...p.toObject(),
-        sellerName:  sellerMap[p.sellerId].name,
-        sellerPhone: sellerMap[p.sellerId].phone,
-        sellerType:  sellerMap[p.sellerId].sellerType,
-      }));
+    // Step 2: fetch all products belonging to those sellers
+    const sellerIds = sellers.map(s => s.uid);
+    const products  = await Product.find({ sellerId: { $in: sellerIds } });
 
-    // Filter by sellerType if provided
-    if (type === "thok_seller") {
-      enriched = enriched.filter(p => p.sellerType === "thok_seller");
-    } else if (type === "city_seller") {
-      enriched = enriched.filter(p => !p.sellerType || p.sellerType === "city_seller");
-    }
+    const enriched = products.map(p => ({
+      ...p.toObject(),
+      sellerName:  sellerMap[p.sellerId]?.name       || "Kisan",
+      sellerPhone: sellerMap[p.sellerId]?.phone      || "",
+      sellerType:  sellerMap[p.sellerId]?.sellerType || "city_seller",
+    }));
 
     res.json(enriched);
   } catch (err) {
