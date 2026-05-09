@@ -6,13 +6,14 @@ const API = import.meta.env.VITE_API;
 
 export default function MyOrders(){
 
-  const [orders,setOrders]         = useState([]);
-  const [rewards,setRewards]       = useState([]);
-  const [screen,setScreen]         = useState(window.innerWidth);
-  const [rewardInput,setRewardInput] = useState("");
-  const [rewardMsg,setRewardMsg]   = useState(null);   // {type:"ok"|"err", text:"..."}
+  const [orders,setOrders]             = useState([]);
+  const [rewards,setRewards]           = useState([]);
+  const [rewardEarnedCount,setRewardEarnedCount] = useState(0);
+  const [screen,setScreen]             = useState(window.innerWidth);
+  const [rewardInput,setRewardInput]   = useState("");
+  const [rewardMsg,setRewardMsg]       = useState(null);
   const [rewardChecking,setRewardChecking] = useState(false);
-  const [currentUid,setCurrentUid] = useState(null);
+  const [currentUid,setCurrentUid]     = useState(null);
 
   // ✅ Only for responsiveness (logic untouched)
   useEffect(()=>{
@@ -31,6 +32,9 @@ export default function MyOrders(){
 
       const rRes = await axios.get(`${API}/api/rewards/my/` + user.uid);
       setRewards(Array.isArray(rRes.data) ? rRes.data : []);
+
+      const cRes = await axios.get(`${API}/api/rewards/count/` + user.uid);
+      setRewardEarnedCount(cRes.data.count || 0);
     });
   },[]);
 
@@ -144,62 +148,78 @@ export default function MyOrders(){
         </div>
       )}
 
-      {/* Reward progress tracker */}
-      {orders.length > 0 && (()=>{
-        const oldest   = orders[orders.length - 1];
-        const daysDone = Math.floor((Date.now() - new Date(oldest.createdAt)) / (1000*60*60*24));
-        const cappedDays   = Math.min(daysDone, 3);
-        const daysLeft     = Math.max(0, 3 - daysDone);
-        const ordersInCycle = orders.length % 3 === 0 ? 3 : orders.length % 3;
-        const ordersLeft    = 3 - ordersInCycle;
-        const daysDone_ok   = daysDone >= 3;
-        const orders_ok     = ordersLeft === 0;
+      {/* Reward progress tracker — unique order days system */}
+      {(()=>{
+        const MILESTONES = [3, 6, 18, 36];
+        function getThreshold(n){
+          if(n < MILESTONES.length) return MILESTONES[n];
+          let t = 36;
+          for(let i = MILESTONES.length; i <= n; i++) t *= 2;
+          return t;
+        }
+
+        const uniqueDaySet = new Set(orders.map(o => new Date(o.createdAt).toDateString()));
+        const uniqueDays   = uniqueDaySet.size;
+        const nextT        = getThreshold(rewardEarnedCount);
+        const daysLeft     = Math.max(0, nextT - uniqueDays);
+        const pct          = Math.min((uniqueDays / nextT) * 100, 100);
+
+        // Chain: show fixed 4 + next if beyond
+        const chainEnd = Math.max(rewardEarnedCount + 1, MILESTONES.length);
+        const chain    = Array.from({length: chainEnd}, (_, i) => getThreshold(i));
+
         return (
           <div style={progressBox}>
-            <p style={progressTitle}>🏆 Reward Progress (3 Din + 3 Orders)</p>
+            <p style={progressTitle}>🏆 Reward Progress — Alag Din Pe Order Karo</p>
 
-            {/* Days progress */}
+            {/* Milestone chain */}
+            <div style={{display:"flex", gap:8, flexWrap:"wrap", marginBottom:16}}>
+              {chain.map((t, i) => {
+                const done    = uniqueDays >= t;
+                const current = t === nextT;
+                return (
+                  <span key={t} style={{
+                    padding:"5px 13px", borderRadius:999, fontSize:12, fontWeight:700,
+                    background: done ? "#dcfce7" : current ? "#fef3c7" : "#f1f5f9",
+                    color:      done ? "#166534" : current ? "#92400e" : "#94a3b8",
+                    border:     current ? "2px solid #f59e0b" : "2px solid transparent",
+                    transition: "0.3s"
+                  }}>
+                    {done ? "✅" : current ? "🎯" : "⏳"} {t} din
+                  </span>
+                );
+              })}
+            </div>
+
+            {/* Progress bar */}
             <div style={progressRow}>
-              <span style={progressLabel}>📅 Din Complete:</span>
+              <span style={progressLabel}>📅 Unique Din:</span>
               <div style={barWrap}>
-                <div style={{...barFill, width:`${(cappedDays/3)*100}%`, background: daysDone_ok?"#16a34a":"#f59e0b"}}/>
+                <div style={{...barFill, width:`${pct}%`, background: daysLeft===0?"#16a34a":"#f59e0b"}}/>
               </div>
-              <span style={progressCount}>{cappedDays}/3</span>
-              {daysDone_ok
-                ? <span style={okBadge}>✅ Complete!</span>
+              <span style={progressCount}>{uniqueDays}/{nextT}</span>
+              {daysLeft === 0
+                ? <span style={okBadge}>🎁 Reward Ready!</span>
                 : <span style={pendingBadge}>⏳ {daysLeft} din aur</span>}
             </div>
 
-            {/* Orders progress */}
-            <div style={progressRow}>
-              <span style={progressLabel}>🛒 Orders:</span>
-              <div style={barWrap}>
-                <div style={{...barFill, width:`${(ordersInCycle/3)*100}%`, background: orders_ok?"#16a34a":"#f59e0b"}}/>
-              </div>
-              <span style={progressCount}>{ordersInCycle}/3</span>
-              {orders_ok
-                ? <span style={okBadge}>✅ Complete!</span>
-                : <span style={pendingBadge}>⏳ {ordersLeft} order aur</span>}
-            </div>
-
-            {daysDone_ok && orders_ok && (
-              <p style={{marginTop:10,fontWeight:800,fontSize:13,color:"#7c3aed"}}>
-                🎁 Aapko reward mil chuka hai ya agle order ke baad milega!
-              </p>
-            )}
-            {(!daysDone_ok || !orders_ok) && (
-              <p style={{marginTop:10,fontSize:12,color:"#6b7280"}}>
-                Dono conditions poori hone par reward code milega.
-              </p>
-            )}
+            <p style={{marginTop:10, fontSize:12, color:"#6b7280"}}>
+              {daysLeft === 0
+                ? "🎉 Next order pe reward code milega!"
+                : `Alag-alag ${daysLeft} aur din par order karo — next reward milega ${nextT} unique din pe!`}
+            </p>
 
             {/* Per-order day list */}
-            <div style={{marginTop:14,borderTop:"1px dashed #e2e8f0",paddingTop:12}}>
-              <p style={{fontWeight:700,fontSize:12,color:"#374151",marginBottom:8}}>📋 Order History (Din)</p>
-              {[...orders].reverse().map((o,i)=>(
+            <div style={{marginTop:14, borderTop:"1px dashed #e2e8f0", paddingTop:12}}>
+              <p style={{fontWeight:700, fontSize:12, color:"#374151", marginBottom:8}}>
+                📋 Order Din List ({uniqueDays} unique din)
+              </p>
+              {[...orders].reverse().map((o, i) => (
                 <div key={o._id} style={dayListRow}>
                   <span style={dayListNum}>Order {i+1}</span>
-                  <span style={dayListName}>{o.items?.[0]?.name || "Order"}{o.items?.length > 1 ? ` +${o.items.length-1}` : ""}</span>
+                  <span style={dayListName}>
+                    {o.items?.[0]?.name || "Order"}{o.items?.length > 1 ? ` +${o.items.length-1}` : ""}
+                  </span>
                   <span style={dayListDate}>{daysAgo(o.createdAt)}</span>
                 </div>
               ))}

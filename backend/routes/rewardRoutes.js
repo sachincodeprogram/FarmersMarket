@@ -11,6 +11,16 @@ router.get("/my/:uid", async (req, res) => {
   }
 });
 
+// GET — total rewards earned count (used + unused) — for milestone tracking
+router.get("/count/:uid", async (req, res) => {
+  try {
+    const count = await RewardCode.countDocuments({ uid: req.params.uid });
+    res.json({ count });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST — code validate karo (use nahi karta, sirf check)
 router.post("/validate", async (req, res) => {
   try {

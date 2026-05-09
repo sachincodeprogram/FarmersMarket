@@ -66,18 +66,25 @@ router.post("/create", async (req, res) => {
 
   await BagItem.deleteMany({ uid });
 
-  // Reward: har 3 orders ke baad, lekin sirf tab jab 3+ din guzar gaye hon pehle order se
-  const orderCount = await Order.countDocuments({ uid });
+  // Reward: alag-alag din par order karne pe milta hai
+  // Milestones: 3 → 6 → 18 → 36 → 72 → 144... (3×2, 6×3, 18×2, then doubles)
+  function getRewardThreshold(n) {
+    const milestones = [3, 6, 18, 36];
+    if (n < milestones.length) return milestones[n];
+    let t = 36;
+    for (let i = milestones.length; i <= n; i++) t *= 2;
+    return t;
+  }
+
+  const allUserOrders = await Order.find({ uid }).select("createdAt");
+  const uniqueDays = new Set(allUserOrders.map(o => new Date(o.createdAt).toDateString())).size;
+  const rewardCount = await RewardCode.countDocuments({ uid });
+  const nextThreshold = getRewardThreshold(rewardCount);
+
   let newRewardCode = null;
-  if (orderCount > 0 && orderCount % 3 === 0) {
-    const firstOrder = await Order.findOne({ uid }).sort({ createdAt: 1 });
-    const daysSinceFirst = firstOrder
-      ? Math.floor((Date.now() - new Date(firstOrder.createdAt)) / (1000 * 60 * 60 * 24))
-      : 0;
-    if (daysSinceFirst >= 3) {
-      newRewardCode = "KISAN" + Math.random().toString(36).substring(2, 8).toUpperCase();
-      await RewardCode.create({ code: newRewardCode, uid });
-    }
+  if (uniqueDays >= nextThreshold) {
+    newRewardCode = "KISAN" + Math.random().toString(36).substring(2, 8).toUpperCase();
+    await RewardCode.create({ code: newRewardCode, uid });
   }
 
   res.json({ success: true, rewardCode: newRewardCode });
