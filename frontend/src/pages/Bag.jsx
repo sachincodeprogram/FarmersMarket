@@ -217,7 +217,7 @@ export default function Bag() {
                     <span>₹{advanceAmt}</span>
                   </div>
                   <div className="bag-breakdown-row muted">
-                    <span>Razorpay charges (~2%)</span>
+                    <span>Razorpay Charges</span>
                     <span>₹{rzpFee}</span>
                   </div>
                   <div className="bag-breakdown-row delivery">
@@ -232,7 +232,7 @@ export default function Bag() {
                 </div>
 
                 <p className="bag-trust-text">
-                  🔒 Sirf advance abhi — baaki payment delivery ke waqt kisan ko dena hoga.
+                  🔒 Sirf advance abhi pay karo — Your Order ke baad kisan ki Details dikhegi. Baaki payment delivery ke waqt kisan ko dena hoga.
                 </p>
 
                 <button
