@@ -17,17 +17,18 @@ router.post("/create", async (req, res) => {
     return res.status(400).json({ error: "Bag empty" });
   }
 
-  // Thok Mandi sellers dhundo — order page mein contact show karne ke liye
+  // Sellers dhundo — thok aur city dono — permanently save karo
   let thokSellers = [];
+  let citySellers = [];
   try {
     const sellerIds = [...new Set(bags.map(b => b.sellerId).filter(Boolean))];
     if (sellerIds.length > 0) {
-      const thokUsers = await User.find({ uid: { $in: sellerIds }, sellerType: "thok_seller" });
-      thokSellers = thokUsers.map(s => ({
-        sellerId: s.uid,
-        name: s.name || "",
-        phone: s.phone || ""
-      }));
+      const allSellers = await User.find({ uid: { $in: sellerIds } });
+      allSellers.forEach(s => {
+        const entry = { sellerId: s.uid, name: s.name || "", phone: s.phone || "" };
+        if (s.sellerType === "thok_seller") thokSellers.push(entry);
+        else citySellers.push(entry);
+      });
     }
   } catch (_) {}
 
@@ -59,6 +60,7 @@ router.post("/create", async (req, res) => {
     advancePaid: finalAdvance,
     location:    city || "",
     thokSellers,
+    citySellers,
     status:      "pending"
   });
 
@@ -169,6 +171,40 @@ router.get("/thok-seller/:uid", async (req, res) => {
   }
 });
 
+
+// ADMIN — ALL DELIVERED ORDERS (permanent history with buyer + seller info)
+router.get("/admin/delivered", async (req, res) => {
+  try {
+    const orders = await Order.find({ status: "delivered" }).sort({ createdAt: -1 });
+
+    // For old orders that don't have citySellers saved, look up from User model
+    const needsEnrich = orders.filter(o => (!o.citySellers || o.citySellers.length === 0) && o.items?.length > 0);
+    if (needsEnrich.length > 0) {
+      const allSellerIds = [...new Set(
+        needsEnrich.flatMap(o => o.items.map(i => i.sellerId).filter(Boolean))
+      )];
+      const users = await User.find({ uid: { $in: allSellerIds } });
+      const userMap = {};
+      users.forEach(u => { userMap[u.uid] = { name: u.name || "", phone: u.phone || "", sellerType: u.sellerType || "city_seller" }; });
+
+      const enriched = orders.map(o => {
+        const obj = o.toObject();
+        if (!obj.citySellers || obj.citySellers.length === 0) {
+          const ids = [...new Set((obj.items || []).map(i => i.sellerId).filter(Boolean))];
+          obj.citySellers = ids
+            .filter(id => userMap[id] && userMap[id].sellerType !== "thok_seller")
+            .map(id => ({ sellerId: id, name: userMap[id].name, phone: userMap[id].phone }));
+        }
+        return obj;
+      });
+      return res.json(enriched);
+    }
+
+    res.json(orders.map(o => o.toObject()));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // MARK DELIVERED
 router.put("/deliver/:id", async (req, res) => {

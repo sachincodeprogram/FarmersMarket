@@ -6,8 +6,10 @@ const API = import.meta.env.VITE_API;
 
 export default function AdminDashboard(){
 
-  const [data,setData]=useState({});
-  const [sellers,setSellers]=useState([]);
+  const [data,setData]               = useState({});
+  const [sellers,setSellers]         = useState([]);
+  const [delivered,setDelivered]     = useState([]);
+  const [showDelivered,setShowDelivered] = useState(false);
 
   useEffect(()=>{
     axios.get(`${API}/api/orders/admin/summary`)
@@ -17,7 +19,13 @@ export default function AdminDashboard(){
         const allSellers = res.data.filter(u=>u.role==="seller");
         setSellers(allSellers);
       });
+    axios.get(`${API}/api/orders/admin/delivered`)
+      .then(res=>setDelivered(Array.isArray(res.data)?res.data:[]));
   },[]);
+
+  function fmtDate(d){
+    return new Date(d).toLocaleDateString("hi-IN",{day:"2-digit",month:"short",year:"numeric"});
+  }
 
   const citySellers = sellers.filter(u=>!u.sellerType||u.sellerType==="city_seller");
   const thokSellers = sellers.filter(u=>u.sellerType==="thok_seller");
@@ -90,6 +98,90 @@ export default function AdminDashboard(){
         <Bar label="Orders" value={data.totalOrders||0} max={max}/>
         <Bar label="Today" value={data.today||0} max={max}/>
         <Bar label="Sales ₹" value={data.totalSales||0} max={max}/>
+      </div>
+
+      {/* DELIVERED ORDERS HISTORY */}
+      <div style={{marginTop:40}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:10}}>
+          <h3 style={{fontSize:17,color:"#374151",margin:0}}>
+            ✅ Delivered Orders History
+            <span style={{marginLeft:10,background:"#dcfce7",color:"#166534",fontSize:13,fontWeight:700,padding:"3px 10px",borderRadius:999}}>
+              {delivered.length} total
+            </span>
+          </h3>
+          <button
+            style={toggleBtn}
+            onClick={()=>setShowDelivered(p=>!p)}
+          >
+            {showDelivered ? "▲ Hide" : "▼ Show All"}
+          </button>
+        </div>
+
+        {showDelivered && (
+          delivered.length === 0
+          ? <p style={{color:"#aaa",fontSize:14}}>Koi delivered order nahi abhi tak.</p>
+          : <div style={{display:"flex",flexDirection:"column",gap:14}}>
+              {delivered.map(o=>{
+                const sellers = [
+                  ...(o.citySellers||[]),
+                  ...(o.thokSellers||[])
+                ].filter(s=>s.name||s.phone);
+                return (
+                  <div key={o._id} style={dCard}>
+
+                    {/* Header row */}
+                    <div style={dHeader}>
+                      <div>
+                        <span style={dDate}>{fmtDate(o.createdAt)}</span>
+                        <span style={dLoc}>📍 {o.location||"—"}</span>
+                      </div>
+                      <span style={dTotal}>₹{o.totalPrice}</span>
+                    </div>
+
+                    <div style={dGrid}>
+
+                      {/* Buyer */}
+                      <div style={dBlock}>
+                        <p style={dBlockTitle}>👤 Buyer</p>
+                        <p style={dName}>{o.name||"—"}</p>
+                        <p style={dPhone}>📞 {o.phone||"—"}</p>
+                        {o.address && <p style={dAddr}>🏠 {o.address}</p>}
+                      </div>
+
+                      {/* Seller(s) */}
+                      <div style={dBlock}>
+                        <p style={dBlockTitle}>🧑‍🌾 Seller(s)</p>
+                        {sellers.length === 0
+                          ? <p style={{color:"#aaa",fontSize:13}}>Info saved nahi</p>
+                          : sellers.map((s,i)=>(
+                            <div key={i} style={{marginBottom:6}}>
+                              <p style={dName}>{s.name||"—"}</p>
+                              {s.phone && <p style={dPhone}>📞 {s.phone}</p>}
+                            </div>
+                          ))
+                        }
+                      </div>
+
+                      {/* Items */}
+                      <div style={dBlock}>
+                        <p style={dBlockTitle}>📦 Items</p>
+                        {(o.items||[]).map((x,i)=>(
+                          <p key={i} style={dItem}>• {x.name} × {x.qty}</p>
+                        ))}
+                        <div style={{marginTop:8,display:"flex",gap:8,flexWrap:"wrap"}}>
+                          <span style={dAmtBox}>Adv: ₹{o.advancePaid||0}</span>
+                          <span style={{...dAmtBox,background:"#fff7ed",color:"#c2410c"}}>
+                            Baaki: ₹{o.totalPrice-(o.advancePaid||0)}
+                          </span>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+        )}
       </div>
 
     </div>
@@ -243,4 +335,60 @@ const locationPill={
 const emptyText={
   fontSize:13,
   color:"#aaa"
+};
+
+const toggleBtn={
+  padding:"8px 18px",background:"#1e293b",color:"#fff",
+  border:"none",borderRadius:10,fontWeight:700,fontSize:13,cursor:"pointer"
+};
+
+const dCard={
+  background:"#fff",borderRadius:16,
+  padding:"18px 20px",
+  boxShadow:"0 2px 10px rgba(0,0,0,.07)",
+  borderLeft:"4px solid #22c55e"
+};
+
+const dHeader={
+  display:"flex",justifyContent:"space-between",alignItems:"center",
+  marginBottom:14,flexWrap:"wrap",gap:8
+};
+
+const dDate={
+  fontSize:13,fontWeight:700,color:"#374151",marginRight:10
+};
+
+const dLoc={
+  fontSize:12,color:"#64748b",
+  background:"#f1f5f9",padding:"2px 8px",borderRadius:999
+};
+
+const dTotal={
+  fontSize:18,fontWeight:800,color:"#166534"
+};
+
+const dGrid={
+  display:"grid",
+  gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",
+  gap:14
+};
+
+const dBlock={
+  background:"#f8fafc",borderRadius:12,padding:"12px 14px"
+};
+
+const dBlockTitle={
+  fontSize:11,fontWeight:700,color:"#94a3b8",
+  textTransform:"uppercase",letterSpacing:1,marginBottom:8
+};
+
+const dName={ fontSize:14,fontWeight:700,color:"#1a1a1a",marginBottom:2 };
+const dPhone={ fontSize:13,color:"#2563eb",fontWeight:600,marginBottom:2 };
+const dAddr={ fontSize:12,color:"#64748b" };
+const dItem={ fontSize:13,color:"#475569",marginBottom:3 };
+
+const dAmtBox={
+  fontSize:12,fontWeight:700,
+  background:"#dcfce7",color:"#166534",
+  padding:"3px 10px",borderRadius:999
 };

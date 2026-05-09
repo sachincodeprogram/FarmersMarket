@@ -16,6 +16,9 @@ const OrderSchema = new mongoose.Schema(
     // Thok Mandi sellers involved in this order (name + phone for contact)
     thokSellers: { type: Array, default: [] },
 
+    // City sellers involved — stored permanently so history never loses seller info
+    citySellers: { type: Array, default: [] },
+
     status: {
       type: String,
       default: "pending"      // pending | delivered
