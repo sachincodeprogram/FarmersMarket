@@ -15,9 +15,10 @@ const createOrder = async (req, res) => {
       return res.status(400).json({ msg: "Sahi price bhejo" });
     }
 
-    const advance  = Math.round(price * 0.05);          // 5% of total
+    const rate     = price < 80 ? 0.12 : 0.05;           // 12% if < ₹80, else 5%
+    const advance  = Math.round(price * rate);
     const fee      = Math.ceil(advance * 0.02);          // ~2% Razorpay charges
-    const total    = advance + fee;                      // total to charge now
+    const total    = advance + fee;
 
     const order = await razorpay.orders.create({
       amount:   total * 100,   // paise mein
