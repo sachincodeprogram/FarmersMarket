@@ -248,6 +248,51 @@ router.put("/deliver/:id", async (req, res) => {
 });
 
 
+// ADMIN — ALL ORDERS EVER (pending + delivered) with full buyer + seller info
+router.get("/admin/all", async (req, res) => {
+  try {
+    const orders = await Order.find().sort({ createdAt: -1 });
+
+    // Enrich orders that don't have citySellers/thokSellers saved
+    const needsEnrich = orders.filter(o =>
+      (!o.citySellers || o.citySellers.length === 0) && o.items?.length > 0
+    );
+
+    if (needsEnrich.length > 0) {
+      const allSellerIds = [...new Set(
+        needsEnrich.flatMap(o => o.items.map(i => i.sellerId).filter(Boolean))
+      )];
+      const users = await User.find({ uid: { $in: allSellerIds } });
+      const userMap = {};
+      users.forEach(u => {
+        userMap[u.uid] = { name: u.name || "", phone: u.phone || "", sellerType: u.sellerType || "city_seller" };
+      });
+
+      const enriched = orders.map(o => {
+        const obj = o.toObject();
+        if (!obj.citySellers || obj.citySellers.length === 0) {
+          const ids = [...new Set((obj.items || []).map(i => i.sellerId).filter(Boolean))];
+          const city = ids
+            .filter(id => userMap[id] && userMap[id].sellerType !== "thok_seller")
+            .map(id => ({ sellerId: id, name: userMap[id].name, phone: userMap[id].phone }));
+          const thok = ids
+            .filter(id => userMap[id] && userMap[id].sellerType === "thok_seller")
+            .map(id => ({ sellerId: id, name: userMap[id].name, phone: userMap[id].phone }));
+          obj.citySellers = city;
+          if (!obj.thokSellers || obj.thokSellers.length === 0) obj.thokSellers = thok;
+        }
+        return obj;
+      });
+      return res.json(enriched);
+    }
+
+    res.json(orders.map(o => o.toObject()));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 // ADMIN SALES SUMMARY
 router.get("/admin/summary", async (req, res) => {
 

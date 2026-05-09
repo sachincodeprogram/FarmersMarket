@@ -17,6 +17,7 @@ import StoreAdmin from "./pages/StoreAdmin";
 import AdminAddProduct from "./pages/AdminAddProduct";
 import AdminManageSellers from "./pages/AdminManageSellers";
 import AdminProducts from "./pages/AdminProducts";
+import AdminOrderHistory from "./pages/AdminOrderHistory";
 import PublicLanding from "./pages/PublicLanding";
 
 // NEW SELLER PAGES
@@ -101,10 +102,16 @@ export default function App(){
           </SellerRoute>
         }/>
         <Route path="/admin-sellers" element={
-  <AdminRoute>
-    <AdminManageSellers/>
-  </AdminRoute>
-}/>
+          <AdminRoute>
+            <AdminManageSellers/>
+          </AdminRoute>
+        }/>
+
+        <Route path="/admin-order-history" element={
+          <AdminRoute>
+            <AdminOrderHistory/>
+          </AdminRoute>
+        }/>
 
       </Routes>
 

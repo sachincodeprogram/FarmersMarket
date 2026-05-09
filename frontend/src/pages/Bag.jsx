@@ -6,11 +6,11 @@ import axios from "axios";
 const API = import.meta.env.VITE_API;
 
 export default function Bag() {
-  const [items, setItems]         = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [paying, setPaying]       = useState(false);
-  const [step, setStep]           = useState("bag");   // "bag" | "success"
-  const [lastOrder, setLastOrder] = useState(null);
+  const [items, setItems]               = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [paying, setPaying]             = useState(false);
+  const [step, setStep]                 = useState("bag");
+  const [lastOrder, setLastOrder]       = useState(null);
   const [rewardInput, setRewardInput]   = useState("");
   const [rewardApplied, setRewardApplied] = useState(false);
   const [rewardErr, setRewardErr]       = useState("");
@@ -81,13 +81,7 @@ export default function Bag() {
     if (items.length === 0 || paying) return;
     try {
       setPaying(true);
-
-      // Step 1 — create Razorpay order
-      const { data: payInfo } = await axios.post(`${API}/api/payment/create-order`, {
-        price: totalPrice,
-      });
-
-      // Step 2 — open Razorpay immediately
+      const { data: payInfo } = await axios.post(`${API}/api/payment/create-order`, { price: totalPrice });
       const options = {
         key:         payInfo.key,
         amount:      Math.round(payInfo.total * 100),
@@ -103,53 +97,38 @@ export default function Bag() {
               setPaying(false);
               return;
             }
-            // Step 3 — save order in DB
             const uid  = auth.currentUser?.uid;
             const city = localStorage.getItem("fm_city") || "";
-            await axios.post(`${API}/api/orders/create`, {
-              uid,
-              advance: payInfo.advance,
-              totalPrice,
-              city,
-            });
-            // Step 4 — fetch latest order for success screen
+            await axios.post(`${API}/api/orders/create`, { uid, advance: payInfo.advance, totalPrice, city });
             const { data: orders } = await axios.get(`${API}/api/orders/user/${uid}`);
             setLastOrder(Array.isArray(orders) && orders.length > 0 ? orders[0] : null);
             setStep("success");
           } catch (err) {
-            console.log(err);
             alert("Order confirm nahi hua. Support se contact karo.");
             setPaying(false);
           }
         },
-        prefill: {
-          name:    auth.currentUser?.displayName || "",
-          contact: "",
-        },
-        theme: { color: "#16a34a" },
-        modal: {
-          ondismiss: () => setPaying(false),
-        },
+        prefill:  { name: auth.currentUser?.displayName || "", contact: "" },
+        theme:    { color: "#16a34a" },
+        modal:    { ondismiss: () => setPaying(false) },
       };
-
       new window.Razorpay(options).open();
-
     } catch (err) {
-      console.log(err);
       alert("Kuch galat hua. Dobara try karo.");
       setPaying(false);
     }
   }
 
   // ── LOADING
-  if (loading) {
-    return (
-      <div style={s.center}>
-        <div style={s.spinner} />
-        <p style={{ color: "#888", marginTop: 14 }}>Bag load ho rahi hai...</p>
+  if (loading) return (
+    <div className="bag-wrap">
+      <style>{css}</style>
+      <div className="bag-loading">
+        <div className="bag-spinner" />
+        <p>Bag load ho rahi hai...</p>
       </div>
-    );
-  }
+    </div>
+  );
 
   // ── SUCCESS SCREEN
   if (step === "success") {
@@ -158,29 +137,26 @@ export default function Bag() {
       <>
         <RzpScript />
         <style>{css}</style>
-        <div className="bag-root">
+        <div className="bag-wrap">
           <div className="bag-success-card">
-
             <div className="bag-success-icon">✅</div>
-            <h2 className="bag-success-title">Your Order Confirmed!</h2>
+            <h2 className="bag-success-title">Order Confirmed!</h2>
             <p className="bag-success-sub">
               Aapka advance payment receive ho gaya.<br />
               Kisan jald hi aapka order deliver karega.
             </p>
 
-            {/* Amount summary */}
             <div className="bag-success-amounts">
               <div className="bag-success-row">
                 <span>Advance Paid</span>
                 <span className="green">₹{lastOrder?.advancePaid || advanceAmt}</span>
               </div>
               <div className="bag-success-row">
-                <span>Delivery Par Dena Hoga</span>
+                <span>Dukaan Par Dena Hoga</span>
                 <span className="orange">₹{lastOrder ? lastOrder.totalPrice - (lastOrder.advancePaid || 0) : onDelivery}</span>
               </div>
             </div>
 
-            {/* Thok seller contact */}
             {thokSellers.length > 0 && (
               <div className="bag-seller-contact">
                 <p className="bag-seller-contact-title">🏭 Thok Mandi Seller — Contact Karo</p>
@@ -188,19 +164,14 @@ export default function Bag() {
                   <div key={i} className="bag-seller-row">
                     <span className="bag-seller-name">👤 {s.name || "Seller"}</span>
                     {s.phone && (
-                      <a href={`tel:${s.phone}`} className="bag-seller-phone">
-                        📞 {s.phone}
-                      </a>
+                      <a href={`tel:${s.phone}`} className="bag-seller-phone">📞 {s.phone}</a>
                     )}
                   </div>
                 ))}
               </div>
             )}
 
-            <a href="/orders" className="bag-view-orders-btn">
-              📦 Mere Orders Dekho →
-            </a>
-
+            <a href="/orders" className="bag-view-orders-btn">📦 Mere Orders Dekho →</a>
           </div>
         </div>
       </>
@@ -212,130 +183,151 @@ export default function Bag() {
     <>
       <RzpScript />
       <style>{css}</style>
-      <div className="bag-root">
+      <div className="bag-wrap">
 
-        <div className="bag-header">
-          <h1 className="bag-title">🛒 Aapki Bag</h1>
-          {items.length > 0 && (
-            <span className="bag-count">{items.length} item{items.length > 1 ? "s" : ""}</span>
-          )}
+        {/* HERO */}
+        <div className="bag-hero">
+          <div className="bag-hero-inner">
+            <div className="bag-hero-badge">🛒 Shopping Bag</div>
+            <h1 className="bag-hero-title">Aapki Bag</h1>
+            <p className="bag-hero-sub">
+              {items.length === 0
+                ? "Abhi koi item nahi — Home se fresh products add karo"
+                : `${items.length} item${items.length > 1 ? "s" : ""} — Sirf advance abhi pay karo`}
+            </p>
+          </div>
         </div>
 
-        {items.length === 0 ? (
-          <div className="bag-empty">
-            <div style={{ fontSize: 60, marginBottom: 16 }}>🛒</div>
-            <h3>Bag Khali Hai</h3>
-            <p>Home se taaza products add karo</p>
-            <a href="/" className="bag-empty-btn">Products Dekho →</a>
-          </div>
-        ) : (
-          <div className="bag-layout">
+        <div className="bag-body">
 
-            {/* Items list */}
-            <div className="bag-items">
-              {items.map(item => (
-                <div key={item._id} className="bag-item">
-                  <img src={item.image} alt={item.name} className="bag-item-img" />
-                  <div className="bag-item-info">
-                    <div className="bag-item-name">{item.name}</div>
-                    <div className="bag-item-qty">Qty: {item.qty}</div>
-                    <div className="bag-item-price">₹{item.price}</div>
-                  </div>
-                  <button className="bag-remove-btn" onClick={() => removeOneQty(item)}>✕</button>
-                </div>
-              ))}
+          {items.length === 0 ? (
+            <div className="bag-empty">
+              <div className="bag-empty-icon">🛒</div>
+              <h3 className="bag-empty-title">Bag Khali Hai</h3>
+              <p className="bag-empty-sub">Home se taaza products add karo</p>
+              <a href="/" className="bag-empty-btn">🌿 Products Dekho →</a>
             </div>
+          ) : (
+            <div className="bag-layout">
 
-            {/* Order Summary */}
-            <div className="bag-sidebar">
-              <div className="bag-summary-card">
-                <h3 className="bag-summary-title">Order Summary</h3>
-
-                <div className="bag-summary-row">
-                  <span>Subtotal</span>
-                  <span>₹{totalPrice}</span>
+              {/* LEFT — Items */}
+              <div className="bag-left">
+                <div className="bag-section-hdr">
+                  <span className="bag-section-title">Cart Items</span>
+                  <span className="bag-section-count">{items.length} items</span>
                 </div>
-
-                <div className="bag-breakdown">
-                  <div className="bag-breakdown-row">
-                    <span>Advance ({advanceRate === 0.12 ? "12%" : "5%"})</span>
-                    <span>₹{advanceAmt}</span>
-                  </div>
-                  <div className="bag-breakdown-row muted">
-                    <span>Razorpay Charges</span>
-                    <span>₹{rzpFee}</span>
-                  </div>
-                  <div className="bag-breakdown-row delivery">
-                    <span>Delivery par baaki</span>
-                    <span>₹{onDelivery}</span>
-                  </div>
-                </div>
-
-                <div className="bag-pay-now-row">
-                  <span>Abhi Pay Karo</span>
-                  <span>₹{payNow}</span>
-                </div>
-
-                <p className="bag-trust-text">
-                  🔒 Sirf advance abhi pay karo — Your Order ke baad kisan ki Details dikhegi. Baaki payment delivery ke waqt kisan ko dena hoga.
-                </p>
-
-                {/* Reward Code */}
-                {!rewardApplied ? (
-                  <div className="bag-reward-wrap">
-                    <p className="bag-reward-label">🎁 Reward Code Hai? Free Order</p>
-                    <div className="bag-reward-row">
-                      <input
-                        className="bag-reward-input"
-                        placeholder="KISANXXXXXX"
-                        value={rewardInput}
-                        onChange={e => { setRewardInput(e.target.value); setRewardErr(""); }}
-                      />
-                      <button
-                        className="bag-reward-btn"
-                        onClick={applyRewardCode}
-                        disabled={rewardChecking || !rewardInput.trim()}
-                      >
-                        {rewardChecking ? "..." : "Apply"}
-                      </button>
+                <div className="bag-items">
+                  {items.map((item, idx) => (
+                    <div key={item._id} className="bag-item" style={{ animationDelay: `${idx * 0.06}s` }}>
+                      <div className="bag-item-img-wrap">
+                        <img src={item.image} alt={item.name} className="bag-item-img" />
+                      </div>
+                      <div className="bag-item-info">
+                        <div className="bag-item-name">{item.name}</div>
+                        <div className="bag-item-qty">Qty: {item.qty}</div>
+                        <div className="bag-item-price">₹{item.price}</div>
+                      </div>
+                      <button className="bag-remove-btn" onClick={() => removeOneQty(item)} title="Remove">✕</button>
                     </div>
-                    {rewardErr && <p className="bag-reward-err">❌ {rewardErr}</p>}
-                  </div>
-                ) : (
-                  <div className="bag-reward-applied">
-                    🎉 Reward Code Apply! Yeh order bilkul FREE hai — koi advance nahi!
-                  </div>
-                )}
-
-                {rewardApplied ? (
-                  <button
-                    className="bag-confirm-btn bag-free-btn"
-                    onClick={handleFreeOrder}
-                    disabled={paying}
-                  >
-                    {paying
-                      ? <><span className="btn-spinner" /> Placing...</>
-                      : <>🎁 Free Order Place Karo</>
-                    }
-                  </button>
-                ) : (
-                  <button
-                    className="bag-confirm-btn"
-                    onClick={handleConfirmOrder}
-                    disabled={paying}
-                  >
-                    {paying
-                      ? <><span className="btn-spinner" /> Processing...</>
-                      : <>✅ Confirm Order — ₹{payNow} Pay Karo</>
-                    }
-                  </button>
-                )}
-
+                  ))}
+                </div>
               </div>
-            </div>
 
-          </div>
-        )}
+              {/* RIGHT — Summary */}
+              <div className="bag-right">
+                <div className="bag-summary-card">
+                  <h3 className="bag-summary-title">Order Summary</h3>
+
+                  {/* Subtotal */}
+                  <div className="bag-summary-total-row">
+                    <span>Subtotal</span>
+                    <span className="bag-total-val">₹{totalPrice}</span>
+                  </div>
+
+                  {/* Breakdown */}
+                  <div className="bag-breakdown">
+                    <div className="bag-breakdown-label">Payment Breakdown</div>
+                    <div className="bag-breakdown-row">
+                      <span>Advance ({advanceRate === 0.12 ? "12%" : "5%"})</span>
+                      <span>₹{advanceAmt}</span>
+                    </div>
+                    <div className="bag-breakdown-row muted">
+                      <span>Razorpay Charges</span>
+                      <span>₹{rzpFee}</span>
+                    </div>
+                    <div className="bag-breakdown-divider" />
+                    <div className="bag-breakdown-row delivery">
+                      <span>🏪 Dukaan Par Dena Hoga</span>
+                      <span>₹{onDelivery}</span>
+                    </div>
+                  </div>
+
+                  {/* Pay Now */}
+                  <div className="bag-pay-box">
+                    <div className="bag-pay-label">Abhi Pay Karo</div>
+                    <div className="bag-pay-amount">₹{payNow}</div>
+                  </div>
+
+                  {/* Trust */}
+                  <div className="bag-trust">
+                    🔒 Sirf advance abhi pay karo — Baaki payment dukaan par jaake kisan ko dena hoga
+                  </div>
+
+                  {/* Reward Code */}
+                  {!rewardApplied ? (
+                    <div className="bag-reward-wrap">
+                      <div className="bag-reward-header">
+                        <span className="bag-reward-icon">🎁</span>
+                        <span className="bag-reward-label">Reward Code Hai? Free Order</span>
+                      </div>
+                      <div className="bag-reward-row">
+                        <input
+                          className="bag-reward-input"
+                          placeholder="KISANXXXXXX"
+                          value={rewardInput}
+                          onChange={e => { setRewardInput(e.target.value); setRewardErr(""); }}
+                        />
+                        <button
+                          className="bag-reward-btn"
+                          onClick={applyRewardCode}
+                          disabled={rewardChecking || !rewardInput.trim()}
+                        >
+                          {rewardChecking ? "..." : "Apply"}
+                        </button>
+                      </div>
+                      {rewardErr && <p className="bag-reward-err">❌ {rewardErr}</p>}
+                    </div>
+                  ) : (
+                    <div className="bag-reward-applied">
+                      <span>🎉</span>
+                      <span>Reward Code Apply! Yeh order bilkul FREE hai — koi advance nahi!</span>
+                    </div>
+                  )}
+
+                  {/* CTA Button */}
+                  {rewardApplied ? (
+                    <button className="bag-confirm-btn bag-free-btn" onClick={handleFreeOrder} disabled={paying}>
+                      {paying
+                        ? <><span className="btn-spinner" /> Placing Order...</>
+                        : <>🎁 Free Order Place Karo</>
+                      }
+                    </button>
+                  ) : (
+                    <button className="bag-confirm-btn" onClick={handleConfirmOrder} disabled={paying}>
+                      {paying
+                        ? <><span className="btn-spinner" /> Processing...</>
+                        : <>✅ Confirm Order — ₹{payNow} Pay Karo</>
+                      }
+                    </button>
+                  )}
+
+                  <p className="bag-secure-note">🛡️ Secured by Razorpay</p>
+                </div>
+              </div>
+
+            </div>
+          )}
+        </div>
       </div>
     </>
   );
@@ -352,145 +344,257 @@ function RzpScript() {
   return null;
 }
 
-const s = {
-  center: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh" },
-  spinner: { width: 36, height: 36, border: "4px solid #eee", borderTopColor: "#16a34a", borderRadius: "50%", animation: "spin 0.7s linear infinite" },
-};
-
 const css = `
-  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Nunito:wght@400;600;700;800&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Nunito:wght@400;600;700;800&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  @keyframes spin  { to { transform: rotate(360deg); } }
-  @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
 
-  .bag-root {
-    min-height: 100vh;
-    background: #f7f8f4;
-    font-family: 'Nunito', sans-serif;
-    padding: clamp(20px,4vw,48px) clamp(16px,4vw,40px);
+  @keyframes spin    { to { transform: rotate(360deg); } }
+  @keyframes fadeUp  { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes popIn   { from { opacity:0; transform:scale(.92); } to { opacity:1; transform:scale(1); } }
+
+  .bag-wrap { min-height:100vh; background:#f0f4f0; font-family:'Nunito',sans-serif; }
+
+  /* LOADING */
+  .bag-loading {
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    min-height:70vh; gap:16px; color:#6b7280; font-size:15px;
+  }
+  .bag-spinner {
+    width:40px; height:40px; border:4px solid #e5e7eb;
+    border-top-color:#16a34a; border-radius:50%;
+    animation:spin .75s linear infinite;
   }
 
-  /* Header */
-  .bag-header { display:flex; align-items:center; gap:14px; margin-bottom:28px; }
-  .bag-title  { font-family:'Playfair Display',serif; font-size:clamp(24px,4vw,36px); color:#1a3a1a; }
-  .bag-count  { background:#16a34a; color:#fff; font-size:13px; font-weight:700; padding:4px 12px; border-radius:100px; }
+  /* HERO */
+  .bag-hero {
+    background:linear-gradient(135deg,#0f2d1a 0%,#1a4a2a 55%,#0f3a2a 100%);
+    padding:36px 24px 52px; position:relative; overflow:hidden;
+  }
+  .bag-hero::after {
+    content:''; position:absolute; inset:0;
+    background:radial-gradient(ellipse at 80% 40%, rgba(52,211,153,.13) 0%, transparent 65%);
+    pointer-events:none;
+  }
+  .bag-hero-inner { max-width:1100px; margin:0 auto; position:relative; z-index:1; }
+  .bag-hero-badge {
+    display:inline-flex; align-items:center; gap:6px;
+    background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2);
+    color:#d1fae5; font-size:12px; font-weight:700; letter-spacing:.06em;
+    padding:5px 14px; border-radius:100px; margin-bottom:14px;
+  }
+  .bag-hero-title {
+    font-family:'Playfair Display',serif; font-size:clamp(26px,4vw,38px);
+    font-weight:800; color:#fff; margin-bottom:8px; line-height:1.15;
+  }
+  .bag-hero-sub { color:rgba(255,255,255,.6); font-size:14px; line-height:1.5; }
 
-  /* Empty */
-  .bag-empty { text-align:center; padding:80px 20px; }
-  .bag-empty h3 { font-family:'Playfair Display',serif; font-size:26px; margin-bottom:8px; color:#333; }
-  .bag-empty p  { color:#888; margin-bottom:24px; }
+  /* BODY */
+  .bag-body { padding:28px 20px; max-width:1100px; margin:0 auto; }
+
+  /* EMPTY */
+  .bag-empty {
+    text-align:center; padding:80px 20px;
+    animation:fadeUp .4s ease;
+  }
+  .bag-empty-icon  { font-size:72px; margin-bottom:18px; }
+  .bag-empty-title {
+    font-family:'Playfair Display',serif; font-size:28px;
+    color:#1a2e1a; margin-bottom:10px;
+  }
+  .bag-empty-sub   { color:#6b7280; font-size:15px; margin-bottom:28px; }
   .bag-empty-btn {
-    display:inline-block; background:#16a34a; color:#fff;
-    padding:12px 28px; border-radius:14px; text-decoration:none;
-    font-weight:700; font-size:15px;
+    display:inline-block; background:linear-gradient(135deg,#16a34a,#15803d);
+    color:#fff; padding:14px 32px; border-radius:14px; text-decoration:none;
+    font-weight:800; font-size:15px; box-shadow:0 6px 18px rgba(22,163,74,.3);
+    transition:transform .15s, box-shadow .2s;
   }
+  .bag-empty-btn:hover { transform:translateY(-2px); box-shadow:0 10px 24px rgba(22,163,74,.4); }
 
-  /* Layout */
+  /* LAYOUT */
   .bag-layout {
-    display:grid; grid-template-columns:1fr 380px;
-    gap:24px; align-items:start; max-width:1100px; margin:0 auto;
+    display:grid; grid-template-columns:1fr 400px;
+    gap:26px; align-items:start;
   }
-  @media (max-width:860px) { .bag-layout { grid-template-columns:1fr; } }
+  @media (max-width:900px) { .bag-layout { grid-template-columns:1fr; } }
 
-  /* Items */
+  /* SECTION HEADER */
+  .bag-section-hdr {
+    display:flex; align-items:center; gap:12px; margin-bottom:16px;
+  }
+  .bag-section-title {
+    font-family:'Playfair Display',serif; font-size:18px; color:#1a2e1a; font-weight:800;
+  }
+  .bag-section-count {
+    background:#16a34a; color:#fff; font-size:12px; font-weight:700;
+    padding:3px 11px; border-radius:100px;
+  }
+
+  /* ITEM CARDS */
   .bag-items { display:flex; flex-direction:column; gap:14px; }
   .bag-item {
-    background:#fff; border-radius:18px; padding:16px;
+    background:#fff; border-radius:20px; padding:16px 18px;
     display:flex; align-items:center; gap:16px;
-    box-shadow:0 2px 10px rgba(0,0,0,.06); border:1px solid rgba(0,0,0,.04);
-    animation:fadeUp 0.3s ease both;
+    box-shadow:0 2px 12px rgba(0,0,0,.07);
+    border:1px solid rgba(0,0,0,.04);
+    animation:fadeUp .35s ease both;
+    transition:box-shadow .2s, transform .2s;
   }
-  .bag-item-img  { width:clamp(60px,10vw,80px); height:clamp(60px,10vw,80px); border-radius:12px; object-fit:cover; flex-shrink:0; }
-  .bag-item-info { flex:1; min-width:0; }
-  .bag-item-name { font-weight:700; font-size:clamp(15px,2vw,17px); color:#1a1a1a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .bag-item-qty  { font-size:13px; color:#888; margin:3px 0; }
-  .bag-item-price{ font-size:17px; font-weight:800; color:#16a34a; }
-  .bag-remove-btn{
-    background:#fef2f2; border:1px solid #fecaca; color:#dc2626;
-    width:34px; height:34px; border-radius:10px; cursor:pointer;
-    font-size:14px; font-weight:700; flex-shrink:0;
-  }
+  .bag-item:hover { box-shadow:0 8px 24px rgba(0,0,0,.12); transform:translateY(-2px); }
 
-  /* Sidebar */
+  .bag-item-img-wrap {
+    width:74px; height:74px; border-radius:14px; overflow:hidden;
+    flex-shrink:0; background:#f3f4f6;
+    box-shadow:0 2px 8px rgba(0,0,0,.1);
+  }
+  .bag-item-img { width:100%; height:100%; object-fit:cover; }
+  .bag-item-info { flex:1; min-width:0; }
+  .bag-item-name {
+    font-weight:800; font-size:16px; color:#1a1a1a;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    margin-bottom:4px;
+  }
+  .bag-item-qty  { font-size:13px; color:#9ca3af; margin-bottom:6px; }
+  .bag-item-price{
+    font-size:18px; font-weight:800; color:#16a34a;
+    font-family:'Playfair Display',serif;
+  }
+  .bag-remove-btn {
+    background:#fef2f2; border:1.5px solid #fecaca; color:#dc2626;
+    width:36px; height:36px; border-radius:10px; cursor:pointer;
+    font-size:14px; font-weight:800; flex-shrink:0;
+    transition:background .15s, transform .15s;
+  }
+  .bag-remove-btn:hover { background:#fee2e2; transform:scale(1.1); }
+
+  /* SUMMARY CARD */
   .bag-summary-card {
-    background:#fff; border-radius:20px; padding:24px;
-    box-shadow:0 4px 20px rgba(0,0,0,.08); border:1px solid rgba(0,0,0,.05);
-    position:sticky; top:80px;
+    background:#fff; border-radius:22px; padding:26px;
+    box-shadow:0 6px 24px rgba(0,0,0,.09);
+    border:1px solid rgba(0,0,0,.05);
+    position:sticky; top:84px;
+    animation:popIn .4s ease;
   }
   .bag-summary-title {
-    font-family:'Playfair Display',serif; font-size:20px; color:#1a3a1a;
-    margin-bottom:18px; padding-bottom:14px; border-bottom:2px solid #f0f0ea;
+    font-family:'Playfair Display',serif; font-size:21px; color:#1a2e1a;
+    font-weight:800; margin-bottom:18px; padding-bottom:16px;
+    border-bottom:2px solid #f0f4f0;
   }
-  .bag-summary-row {
+  .bag-summary-total-row {
     display:flex; justify-content:space-between;
-    font-size:15px; font-weight:700; color:#333; margin-bottom:14px;
+    font-size:15px; font-weight:700; color:#374151; margin-bottom:16px;
   }
+  .bag-total-val { font-size:18px; font-weight:800; color:#1a2e1a; }
 
-  /* Breakdown */
+  /* BREAKDOWN */
   .bag-breakdown {
-    background:#f8fdf8; border:1px solid #c6e8c6;
-    border-radius:12px; padding:14px; margin-bottom:14px;
+    background:#f8fdf8; border:1.5px solid #c6e8c6;
+    border-radius:14px; padding:14px 16px; margin-bottom:18px;
+  }
+  .bag-breakdown-label {
+    font-size:11px; font-weight:700; color:#6b7280; letter-spacing:.05em;
+    text-transform:uppercase; margin-bottom:10px;
   }
   .bag-breakdown-row {
     display:flex; justify-content:space-between;
-    font-size:13px; font-weight:600; color:#374151; margin-bottom:8px;
+    font-size:13px; font-weight:600; color:#374151; margin-bottom:9px;
   }
   .bag-breakdown-row:last-child { margin-bottom:0; }
-  .bag-breakdown-row.muted  { color:#888; font-size:12px; font-weight:500; }
-  .bag-breakdown-row.delivery {
-    color:#d97706; font-weight:700;
-    border-top:1px dashed #d1d5db; padding-top:8px; margin-top:4px;
-  }
+  .bag-breakdown-row.muted  { color:#9ca3af; font-size:12px; font-weight:500; }
+  .bag-breakdown-row.delivery { color:#d97706; font-weight:700; }
+  .bag-breakdown-divider { border-top:1px dashed #d1d5db; margin:8px 0 10px; }
 
-  .bag-pay-now-row {
-    display:flex; justify-content:space-between;
-    font-size:20px; font-weight:800; color:#1a3a1a;
-    margin-bottom:14px; padding-top:14px; border-top:2px solid #f0f0ea;
+  /* PAY BOX */
+  .bag-pay-box {
+    background:linear-gradient(135deg,#ecfdf5,#d1fae5);
+    border:1.5px solid #6ee7b7; border-radius:14px;
+    padding:16px 18px; margin-bottom:14px;
+    display:flex; justify-content:space-between; align-items:center;
   }
+  .bag-pay-label  { font-size:13px; font-weight:700; color:#065f46; }
+  .bag-pay-amount { font-family:'Playfair Display',serif; font-size:26px; font-weight:800; color:#065f46; }
 
-  .bag-trust-text {
+  /* TRUST */
+  .bag-trust {
     font-size:12px; color:#6b7280; text-align:center;
-    margin-bottom:18px; line-height:1.5;
-    background:#f9fafb; padding:10px 12px; border-radius:10px;
+    line-height:1.55; background:#f9fafb; padding:10px 14px;
+    border-radius:10px; margin-bottom:16px;
   }
 
-  /* CONFIRM BUTTON — big and prominent */
+  /* REWARD */
+  .bag-reward-wrap  { margin-bottom:16px; }
+  .bag-reward-header {
+    display:flex; align-items:center; gap:8px; margin-bottom:10px;
+  }
+  .bag-reward-icon  { font-size:18px; }
+  .bag-reward-label { font-size:13px; font-weight:800; color:#7c3aed; }
+  .bag-reward-row   { display:flex; gap:8px; }
+  .bag-reward-input {
+    flex:1; padding:11px 14px; border:1.5px solid #ddd8fe;
+    border-radius:10px; font-family:'Nunito',sans-serif; font-size:14px;
+    font-weight:700; outline:none; letter-spacing:1.5px; text-transform:uppercase;
+    transition:border .2s;
+  }
+  .bag-reward-input:focus { border-color:#7c3aed; box-shadow:0 0 0 3px rgba(124,58,237,.1); }
+  .bag-reward-btn {
+    padding:11px 20px; background:linear-gradient(135deg,#7c3aed,#6d28d9);
+    color:#fff; border:none; border-radius:10px;
+    font-family:'Nunito',sans-serif; font-weight:700; font-size:14px;
+    cursor:pointer; white-space:nowrap; transition:opacity .2s;
+  }
+  .bag-reward-btn:disabled { opacity:.5; cursor:not-allowed; }
+  .bag-reward-err { font-size:12px; color:#dc2626; margin-top:6px; font-weight:600; }
+  .bag-reward-applied {
+    background:#f5f3ff; border:1.5px solid #a78bfa;
+    border-radius:12px; padding:12px 14px;
+    font-size:13px; font-weight:700; color:#6d28d9;
+    margin-bottom:16px; display:flex; align-items:center; gap:8px;
+    animation:fadeUp .3s ease;
+  }
+
+  /* CONFIRM BUTTON */
   .bag-confirm-btn {
-    width:100%; padding:18px;
-    background:linear-gradient(135deg,#16a34a,#15803d);
-    color:#fff; border:none; border-radius:16px;
+    width:100%; padding:18px; border:none; border-radius:16px;
     font-family:'Nunito',sans-serif; font-size:17px; font-weight:800;
-    cursor:pointer; letter-spacing:0.3px;
+    cursor:pointer; letter-spacing:.3px; margin-bottom:10px;
+    background:linear-gradient(135deg,#16a34a,#15803d); color:#fff;
     box-shadow:0 6px 20px rgba(22,163,74,.35);
-    transition:transform 0.15s, box-shadow 0.2s;
     display:flex; align-items:center; justify-content:center; gap:8px;
+    transition:transform .15s, box-shadow .2s;
   }
-  .bag-confirm-btn:hover:not(:disabled) {
-    transform:translateY(-2px);
-    box-shadow:0 10px 28px rgba(22,163,74,.45);
+  .bag-confirm-btn:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 10px 28px rgba(22,163,74,.45); }
+  .bag-confirm-btn:disabled { opacity:.6; cursor:not-allowed; }
+  .bag-free-btn {
+    background:linear-gradient(135deg,#7c3aed,#6d28d9) !important;
+    box-shadow:0 6px 20px rgba(124,58,237,.35) !important;
   }
-  .bag-confirm-btn:disabled { opacity:0.6; cursor:not-allowed; }
+  .bag-free-btn:hover:not(:disabled) { box-shadow:0 10px 28px rgba(124,58,237,.45) !important; }
 
   .btn-spinner {
-    width:16px; height:16px;
-    border:2px solid rgba(255,255,255,.4);
-    border-top-color:#fff; border-radius:50%;
-    animation:spin 0.7s linear infinite; display:inline-block;
+    width:16px; height:16px; border:2px solid rgba(255,255,255,.4);
+    border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite;
+    display:inline-block;
+  }
+
+  .bag-secure-note {
+    text-align:center; font-size:12px; color:#9ca3af; font-weight:600; margin-top:4px;
   }
 
   /* SUCCESS SCREEN */
   .bag-success-card {
-    max-width:440px; margin:60px auto;
-    background:#fff; border-radius:24px; padding:clamp(28px,5vw,48px) clamp(24px,4vw,40px);
+    max-width:460px; margin:60px auto;
+    background:#fff; border-radius:24px;
+    padding:clamp(28px,5vw,48px) clamp(22px,4vw,40px);
     box-shadow:0 12px 40px rgba(0,0,0,.1); text-align:center;
-    animation:fadeUp 0.4s ease;
+    animation:popIn .4s ease;
   }
-  .bag-success-icon  { font-size:64px; margin-bottom:16px; }
-  .bag-success-title { font-family:'Playfair Display',serif; font-size:clamp(22px,4vw,30px); color:#1a3a1a; margin-bottom:10px; }
+  .bag-success-icon  { font-size:70px; margin-bottom:18px; display:block; }
+  .bag-success-title {
+    font-family:'Playfair Display',serif; font-size:clamp(22px,4vw,30px);
+    color:#1a2e1a; margin-bottom:10px; font-weight:800;
+  }
   .bag-success-sub   { color:#6b7280; font-size:15px; line-height:1.6; margin-bottom:24px; }
-
   .bag-success-amounts {
-    background:#f8fdf8; border:1px solid #c6e8c6;
+    background:#f8fdf8; border:1.5px solid #c6e8c6;
     border-radius:14px; padding:16px 20px; margin-bottom:20px;
   }
   .bag-success-row {
@@ -498,62 +602,28 @@ const css = `
     font-size:15px; font-weight:700; color:#374151; margin-bottom:8px;
   }
   .bag-success-row:last-child { margin-bottom:0; }
-  .bag-success-row .green  { color:#16a34a; }
-  .bag-success-row .orange { color:#d97706; }
+  .bag-success-row .green  { color:#16a34a; font-size:17px; }
+  .bag-success-row .orange { color:#d97706; font-size:17px; }
 
-  /* Seller contact */
   .bag-seller-contact {
-    background:#fff7ed; border:1px solid #fed7aa;
+    background:#fff7ed; border:1.5px solid #fed7aa;
     border-radius:14px; padding:16px; margin-bottom:20px; text-align:left;
   }
-  .bag-seller-contact-title {
-    font-weight:700; font-size:13px; color:#c2410c; margin-bottom:12px;
-  }
+  .bag-seller-contact-title { font-weight:800; font-size:13px; color:#c2410c; margin-bottom:12px; }
   .bag-seller-row { display:flex; align-items:center; gap:12px; margin-bottom:6px; }
   .bag-seller-name  { font-size:14px; font-weight:700; color:#374151; }
   .bag-seller-phone {
-    font-size:14px; font-weight:700; color:#c2410c;
-    text-decoration:none; background:#ffedd5;
-    padding:4px 12px; border-radius:100px; border:1px solid #fed7aa;
+    font-size:14px; font-weight:700; color:#c2410c; text-decoration:none;
+    background:#ffedd5; padding:4px 12px; border-radius:100px; border:1px solid #fed7aa;
+    transition:background .15s;
   }
+  .bag-seller-phone:hover { background:#fde68a; }
 
   .bag-view-orders-btn {
-    display:inline-block; background:#16a34a; color:#fff;
-    padding:14px 32px; border-radius:14px; text-decoration:none;
-    font-weight:800; font-size:15px;
-    box-shadow:0 4px 14px rgba(22,163,74,.3);
+    display:inline-block; background:linear-gradient(135deg,#16a34a,#15803d);
+    color:#fff; padding:15px 36px; border-radius:14px; text-decoration:none;
+    font-weight:800; font-size:15px; box-shadow:0 6px 18px rgba(22,163,74,.3);
+    transition:transform .15s, box-shadow .2s;
   }
-
-  /* Reward code */
-  .bag-reward-wrap  { margin-bottom:16px; }
-  .bag-reward-label { font-size:13px; font-weight:700; color:#7c3aed; margin-bottom:8px; }
-  .bag-reward-row   { display:flex; gap:8px; }
-  .bag-reward-input {
-    flex:1; padding:11px 14px; border:1.5px solid #ddd8fe;
-    border-radius:10px; font-family:'Nunito',sans-serif; font-size:14px;
-    outline:none; letter-spacing:1px; text-transform:uppercase;
-  }
-  .bag-reward-input:focus { border-color:#7c3aed; }
-  .bag-reward-btn {
-    padding:11px 18px; background:#7c3aed; color:#fff;
-    border:none; border-radius:10px; font-family:'Nunito',sans-serif;
-    font-weight:700; font-size:14px; cursor:pointer; white-space:nowrap;
-  }
-  .bag-reward-btn:disabled { opacity:0.5; cursor:not-allowed; }
-  .bag-reward-err { font-size:12px; color:#dc2626; margin-top:6px; font-weight:600; }
-
-  .bag-reward-applied {
-    background:#f0fdf4; border:1.5px solid #16a34a;
-    border-radius:12px; padding:12px 14px;
-    font-size:13px; font-weight:700; color:#15803d;
-    margin-bottom:16px; text-align:center;
-  }
-
-  .bag-free-btn {
-    background:linear-gradient(135deg,#7c3aed,#6d28d9) !important;
-    box-shadow:0 6px 20px rgba(124,58,237,.35) !important;
-  }
-  .bag-free-btn:hover:not(:disabled) {
-    box-shadow:0 10px 28px rgba(124,58,237,.45) !important;
-  }
+  .bag-view-orders-btn:hover { transform:translateY(-2px); box-shadow:0 10px 24px rgba(22,163,74,.4); }
 `;

@@ -77,6 +77,23 @@ export default function MyOrders() {
 
         <h2 className="mo-title">📦 My Orders</h2>
 
+        {/* Support button */}
+        <a
+          href="tel:7017696580"
+          style={{
+            position:"fixed", bottom:24, right:24, zIndex:9999,
+            display:"flex", alignItems:"center", gap:10,
+            background:"linear-gradient(135deg,#166534,#15803d)",
+            color:"#fff", borderRadius:50, padding:"13px 20px",
+            fontFamily:"Nunito,sans-serif", fontSize:14, fontWeight:700,
+            textDecoration:"none", boxShadow:"0 4px 20px rgba(22,101,52,.5)",
+            cursor:"pointer"
+          }}
+        >
+          <span style={{fontSize:20}}>🎧</span>
+          <span>Help</span>
+        </a>
+
         {/* Reward codes */}
         {rewards.length > 0 && (
           <div className="mo-reward-box">
@@ -241,6 +258,35 @@ const css = `
     color: #0f172a;
     margin-bottom: 24px;
   }
+
+  /* Support button */
+  .mo-support-btn {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: linear-gradient(135deg, #166534, #15803d);
+    color: #fff;
+    border: none;
+    border-radius: 50px;
+    padding: 13px 20px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(22,101,52,.45);
+    text-decoration: none;
+    transition: transform .2s, box-shadow .2s;
+    animation: fadeUp .4s ease;
+  }
+  .mo-support-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 28px rgba(22,101,52,.55);
+  }
+  .mo-support-icon { font-size: 20px; }
 
   /* ── Reward box */
   .mo-reward-box {
