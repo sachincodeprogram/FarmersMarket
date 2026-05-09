@@ -138,11 +138,13 @@ router.get("/vendor/:location", async (req, res) => {
 });
 
 // CITY SELLER — sirf us seller ke products wale orders (items.sellerId se match)
+// ?status=pending (default) ya ?status=delivered
 router.get("/city-seller/:uid", async (req, res) => {
   try {
+    const status = req.query.status || "pending";
     const orders = await Order.find({
       "items.sellerId": req.params.uid,
-      status: "pending"
+      status
     }).sort({ createdAt: -1 });
 
     res.json(orders);
@@ -152,11 +154,13 @@ router.get("/city-seller/:uid", async (req, res) => {
 });
 
 // THOK MANDI SELLER — sirf woh orders jo us seller ke products contain karte hain
+// ?status=pending (default) ya ?status=delivered
 router.get("/thok-seller/:uid", async (req, res) => {
   try {
+    const status = req.query.status || "pending";
     const orders = await Order.find({
       "thokSellers.sellerId": req.params.uid,
-      status: "pending"
+      status
     }).sort({ createdAt: -1 });
 
     res.json(orders);

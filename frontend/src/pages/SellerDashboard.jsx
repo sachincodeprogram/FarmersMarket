@@ -5,16 +5,17 @@ import axios from "axios";
 const API = import.meta.env.VITE_API;
 
 export default function SellerDashboard() {
-  const [products, setProducts]         = useState([]);
-  const [orders, setOrders]             = useState([]);
+  const [products, setProducts]             = useState([]);
+  const [orders, setOrders]                 = useState([]);
+  const [deliveredOrders, setDeliveredOrders] = useState([]);
   const [sellerLocation, setSellerLocation] = useState("");
-  const [sellerType, setSellerType]     = useState(null); // "city_seller" | "thok_seller"
-  const [sellerId, setSellerId]         = useState("");
-  const [tab, setTab]                   = useState("products");
-  const [loading, setLoading]           = useState(true);
-  const [editMap, setEditMap]           = useState({});
-  const [savingId, setSavingId]         = useState(null);
-  const [editMsg, setEditMsg]           = useState("");
+  const [sellerType, setSellerType]         = useState(null); // "city_seller" | "thok_seller"
+  const [sellerId, setSellerId]             = useState("");
+  const [tab, setTab]                       = useState("products");
+  const [loading, setLoading]               = useState(true);
+  const [editMap, setEditMap]               = useState({});
+  const [savingId, setSavingId]             = useState(null);
+  const [editMsg, setEditMsg]               = useState("");
 
   useEffect(() => {
     const unsub = auth.onAuthStateChanged(async (u) => {
@@ -30,8 +31,10 @@ export default function SellerDashboard() {
           loadProducts(u.uid);
           if (type === "thok_seller") {
             loadThokOrders(u.uid);
+            loadThokOrders(u.uid, "delivered");
           } else {
             loadCityOrders(u.uid);
+            loadCityOrders(u.uid, "delivered");
           }
         }
       } catch (err) { console.log(err); }
@@ -47,17 +50,19 @@ export default function SellerDashboard() {
     } catch (err) { console.log(err); }
   }
 
-  async function loadCityOrders(uid) {
+  async function loadCityOrders(uid, status = "pending") {
     try {
-      const res = await axios.get(`${API}/api/orders/city-seller/${uid}`);
-      setOrders(res.data);
+      const res = await axios.get(`${API}/api/orders/city-seller/${uid}?status=${status}`);
+      if (status === "delivered") setDeliveredOrders(res.data);
+      else setOrders(res.data);
     } catch (err) { console.log(err); }
   }
 
-  async function loadThokOrders(uid) {
+  async function loadThokOrders(uid, status = "pending") {
     try {
-      const res = await axios.get(`${API}/api/orders/thok-seller/${uid}`);
-      setOrders(res.data);
+      const res = await axios.get(`${API}/api/orders/thok-seller/${uid}?status=${status}`);
+      if (status === "delivered") setDeliveredOrders(res.data);
+      else setOrders(res.data);
     } catch (err) { console.log(err); }
   }
 
@@ -235,6 +240,13 @@ export default function SellerDashboard() {
               🧾 Orders
               <span className="sd-tab-count">{orders.length}</span>
             </button>
+            <button
+              className={`sd-tab ${tab === "delivered" ? (isThok ? "active-thok" : "active") : ""}`}
+              onClick={() => setTab("delivered")}
+            >
+              ✅ Delivered
+              <span className="sd-tab-count">{deliveredOrders.length}</span>
+            </button>
             <a href="/seller-add-product" className={`sd-add-btn ${isThok ? "sd-add-btn-thok" : ""}`}>
               ＋ Product Add Karo
             </a>
@@ -384,6 +396,63 @@ export default function SellerDashboard() {
                       >
                         ✅ Mark as Delivered
                       </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── DELIVERED TAB ── */}
+          {tab === "delivered" && (
+            <div>
+              {deliveredOrders.length === 0 ? (
+                <div className="sd-empty">
+                  <div style={{ fontSize: 56 }}>📦</div>
+                  <h3>Koi Delivered Order Nahi</h3>
+                  <p>Jab orders deliver honge tab yahan dikhenge</p>
+                </div>
+              ) : (
+                <div className="sd-orders">
+                  {deliveredOrders.map((o, i) => (
+                    <div key={o._id} className="sd-order-card sd-order-delivered">
+                      <div className="sd-order-header">
+                        <div>
+                          <div className="sd-order-name">{o.name}</div>
+                          <div className="sd-order-contact">📞 {o.phone}</div>
+                          <div className="sd-order-address">🏠 {o.address}</div>
+                        </div>
+                        <div style={{textAlign:"right"}}>
+                          <div className="sd-delivered-badge">✅ Delivered</div>
+                          <div className="sd-days-tag">{daysAgo(o.createdAt)}</div>
+                        </div>
+                      </div>
+
+                      <div className="sd-order-divider" />
+
+                      <div className="sd-order-items-label">Items:</div>
+                      <div className="sd-order-items">
+                        {o.items.map((x, j) => (
+                          <div key={j} className="sd-order-item">
+                            • {x.name} × {x.qty}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="sd-order-amounts">
+                        <div className="sd-amount-box">
+                          <div className="sd-amount-val">₹{o.totalPrice}</div>
+                          <div className="sd-amount-lbl">Total</div>
+                        </div>
+                        <div className="sd-amount-box green">
+                          <div className="sd-amount-val">₹{o.advancePaid || 0}</div>
+                          <div className="sd-amount-lbl">Advance Paid</div>
+                        </div>
+                        <div className="sd-amount-box orange">
+                          <div className="sd-amount-val">₹{o.totalPrice - (o.advancePaid || 0)}</div>
+                          <div className="sd-amount-lbl">Baaki Mila</div>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -884,5 +953,19 @@ const css = `
     font-size: 11px; font-weight: 600; color: #64748b;
     background: #f1f5f9; padding: 2px 8px; border-radius: 999px;
     margin-top: 6px; display: inline-block;
+  }
+
+  .sd-order-delivered {
+    border-left: 4px solid #22c55e;
+  }
+
+  .sd-delivered-badge {
+    background: #dcfce7;
+    color: #166534;
+    padding: 6px 14px;
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
   }
 `;
