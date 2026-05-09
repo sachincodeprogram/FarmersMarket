@@ -5,15 +5,16 @@ import axios from "axios";
 const API = import.meta.env.VITE_API;
 
 export default function SellerDashboard() {
-  const [products, setProducts]     = useState([]);
-  const [orders, setOrders]         = useState([]);
+  const [products, setProducts]         = useState([]);
+  const [orders, setOrders]             = useState([]);
   const [sellerLocation, setSellerLocation] = useState("");
-  const [sellerId, setSellerId]     = useState("");
-  const [tab, setTab]               = useState("products");
-  const [loading, setLoading]       = useState(true);
-  const [editMap, setEditMap]       = useState({});
-  const [savingId, setSavingId]     = useState(null);
-  const [editMsg, setEditMsg]       = useState("");
+  const [sellerType, setSellerType]     = useState(null); // "city_seller" | "thok_seller"
+  const [sellerId, setSellerId]         = useState("");
+  const [tab, setTab]                   = useState("products");
+  const [loading, setLoading]           = useState(true);
+  const [editMap, setEditMap]           = useState({});
+  const [savingId, setSavingId]         = useState(null);
+  const [editMsg, setEditMsg]           = useState("");
 
   useEffect(() => {
     const unsub = auth.onAuthStateChanged(async (u) => {
@@ -21,8 +22,10 @@ export default function SellerDashboard() {
       setSellerId(u.uid);
       try {
         const res = await axios.get(`${API}/api/users/check/${u.uid}`);
-        const loc = res.data.location || "";
+        const loc  = res.data.location   || "";
+        const type = res.data.sellerType || "city_seller";
         setSellerLocation(loc);
+        setSellerType(type);
         if (loc) {
           loadProducts(u.uid);
           loadOrders(loc);
@@ -112,7 +115,7 @@ export default function SellerDashboard() {
     );
   }
 
-  const totalRevenue = products.length * 0; // placeholder
+  const isThok = sellerType === "thok_seller";
 
   return (
     <>
@@ -120,16 +123,20 @@ export default function SellerDashboard() {
       <div className="sd-root">
 
         {/* ── TOP HERO ── */}
-        <div className="sd-hero">
+        <div className={`sd-hero ${isThok ? "sd-hero-thok" : ""}`}>
           <div className="sd-hero-inner">
             <div className="sd-hero-left">
-              <div className="sd-seller-badge">🧑‍🌾 Seller</div>
+              <div className="sd-seller-badge">
+                {isThok ? "🏭 Thok Mandi Seller" : "🧑‍🌾 City Seller"}
+              </div>
               <h1 className="sd-hero-title">Mera Dashboard</h1>
-              <div className="sd-location-pill">📍 {sellerLocation} Market</div>
+              <div className={`sd-location-pill ${isThok ? "sd-location-pill-thok" : ""}`}>
+                {isThok ? "🏭" : "📍"} {sellerLocation} {isThok ? "Mandi" : "Market"}
+              </div>
             </div>
             <div className="sd-stats-row">
-              <StatCard icon="📦" label="Products" value={products.length} color="#22c55e" />
-              <StatCard icon="🧾" label="Orders" value={orders.length} color="#f59e0b" />
+              <StatCard icon="📦" label="Products" value={products.length} color={isThok ? "#f97316" : "#22c55e"} />
+              <StatCard icon="🧾" label="Orders"   value={orders.length}   color={isThok ? "#fb923c" : "#f59e0b"} />
             </div>
           </div>
         </div>
@@ -139,20 +146,20 @@ export default function SellerDashboard() {
           {/* ── TABS ── */}
           <div className="sd-tabs">
             <button
-              className={`sd-tab ${tab === "products" ? "active" : ""}`}
+              className={`sd-tab ${tab === "products" ? (isThok ? "active-thok" : "active") : ""}`}
               onClick={() => setTab("products")}
             >
               📦 Products
               <span className="sd-tab-count">{products.length}</span>
             </button>
             <button
-              className={`sd-tab ${tab === "orders" ? "active" : ""}`}
+              className={`sd-tab ${tab === "orders" ? (isThok ? "active-thok" : "active") : ""}`}
               onClick={() => setTab("orders")}
             >
               🧾 Orders
               <span className="sd-tab-count">{orders.length}</span>
             </button>
-            <a href="/seller-add-product" className="sd-add-btn">
+            <a href="/seller-add-product" className={`sd-add-btn ${isThok ? "sd-add-btn-thok" : ""}`}>
               ＋ Product Add Karo
             </a>
           </div>
@@ -366,6 +373,16 @@ const css = `
     padding: clamp(24px, 4vw, 48px) clamp(16px, 4vw, 48px);
   }
 
+  .sd-hero-thok {
+    background: linear-gradient(135deg, #7c2d12, #c2410c);
+  }
+
+  .sd-location-pill-thok {
+    background: rgba(255,255,255,0.12);
+    border-color: rgba(255,255,255,0.2);
+    color: #fed7aa;
+  }
+
   .sd-hero-inner {
     max-width: 1100px;
     margin: 0 auto;
@@ -466,6 +483,12 @@ const css = `
     border-color: #2d5a27;
   }
 
+  .sd-tab.active-thok {
+    background: #c2410c;
+    color: #fff;
+    border-color: #c2410c;
+  }
+
   .sd-tab-count {
     background: rgba(255,255,255,0.25);
     padding: 2px 8px;
@@ -491,6 +514,12 @@ const css = `
     box-shadow: 0 4px 14px rgba(22,163,74,0.3);
   }
   .sd-add-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(22,163,74,0.35); }
+
+  .sd-add-btn-thok {
+    background: linear-gradient(135deg, #f97316, #c2410c);
+    box-shadow: 0 4px 14px rgba(249,115,22,0.3);
+  }
+  .sd-add-btn-thok:hover { box-shadow: 0 8px 20px rgba(249,115,22,0.4); }
 
   /* MSG */
   .sd-msg {

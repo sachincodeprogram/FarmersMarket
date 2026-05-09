@@ -9,29 +9,37 @@ router.get("/", async (req, res) => {
   res.json(await Product.find());
 });
 
-// ✅ GET PRODUCTS BY LOCATION — seller name + phone bhi aayega
+// GET PRODUCTS BY LOCATION — ?type=city_seller|thok_seller filter optional
 router.get("/location/:location", async (req, res) => {
   try {
+    const { type } = req.query; // "city_seller" | "thok_seller" | undefined
     const products = await Product.find({ location: req.params.location });
 
-    // Unique sellerIds nikalo
     const sellerIds = [...new Set(products.map(p => p.sellerId).filter(Boolean))];
-
-    // Un sellers ki User details ek saath fetch karo
     const sellers = await User.find({ uid: { $in: sellerIds } });
 
-    // Map banao: uid → { name, phone }
     const sellerMap = {};
     sellers.forEach(s => {
-      sellerMap[s.uid] = { name: s.name || "Kisan", phone: s.phone || "" };
+      sellerMap[s.uid] = {
+        name: s.name || "Kisan",
+        phone: s.phone || "",
+        sellerType: s.sellerType || "city_seller",
+      };
     });
 
-    // Har product mein sellerName + sellerPhone inject karo
-    const enriched = products.map(p => ({
+    let enriched = products.map(p => ({
       ...p.toObject(),
-      sellerName:  sellerMap[p.sellerId]?.name  || "Kisan",
-      sellerPhone: sellerMap[p.sellerId]?.phone || "",
+      sellerName:  sellerMap[p.sellerId]?.name       || "Kisan",
+      sellerPhone: sellerMap[p.sellerId]?.phone      || "",
+      sellerType:  sellerMap[p.sellerId]?.sellerType || "city_seller",
     }));
+
+    // Filter by sellerType if provided
+    if (type === "thok_seller") {
+      enriched = enriched.filter(p => p.sellerType === "thok_seller");
+    } else if (type === "city_seller") {
+      enriched = enriched.filter(p => !p.sellerType || p.sellerType === "city_seller");
+    }
 
     res.json(enriched);
   } catch (err) {

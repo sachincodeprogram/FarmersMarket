@@ -95,6 +95,23 @@ export default function MyOrders(){
             ₹{o.totalPrice}
           </p>
 
+          {/* Thok Mandi seller contact — sirf tab dikhao jab order thok se ho */}
+          {o.thokSellers && o.thokSellers.length > 0 && (
+            <div style={thokBox}>
+              <p style={thokTitle}>🏭 Thok Mandi Seller — Contact Karo</p>
+              {o.thokSellers.map((s, i) => (
+                <div key={i} style={thokRow}>
+                  <span style={thokName}>👤 {s.name || "Seller"}</span>
+                  {s.phone && (
+                    <a href={`tel:${s.phone}`} style={thokPhone}>
+                      📞 {s.phone}
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
           {o.status==="delivered" && (
             <button style={btn} onClick={()=>orderAgain(o)}>
               Order Again (Pay 25%)
@@ -196,4 +213,43 @@ const pending={
   marginTop:"12px",
   color:"#b45309",
   fontWeight:"500"
+};
+
+const thokBox={
+  marginTop:"14px",
+  background:"#fff7ed",
+  border:"1px solid #fed7aa",
+  borderRadius:"12px",
+  padding:"12px 16px"
+};
+
+const thokTitle={
+  fontWeight:"700",
+  fontSize:"13px",
+  color:"#c2410c",
+  marginBottom:"8px"
+};
+
+const thokRow={
+  display:"flex",
+  alignItems:"center",
+  gap:"14px",
+  marginBottom:"4px"
+};
+
+const thokName={
+  fontSize:"14px",
+  color:"#374151",
+  fontWeight:"600"
+};
+
+const thokPhone={
+  fontSize:"14px",
+  color:"#c2410c",
+  fontWeight:"700",
+  textDecoration:"none",
+  background:"#ffedd5",
+  padding:"4px 12px",
+  borderRadius:"100px",
+  border:"1px solid #fed7aa"
 };

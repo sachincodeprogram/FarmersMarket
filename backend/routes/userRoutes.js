@@ -35,7 +35,8 @@ router.get("/check/:uid", async (req, res) => {
       res.json({
         complete: true,
         role: user.role || "user",
-        location: user.location || ""   // ✅ NEW — location bhi return ho
+        location: user.location || "",
+        sellerType: user.sellerType || null
       });
     } else {
       res.json({
@@ -66,11 +67,14 @@ router.get("/", async (req, res) => {
 router.post("/assign-seller", async (req, res) => {
   try {
 
-    const { uid, location } = req.body;
+    const { uid, location, sellerType } = req.body;
 
     if (!uid || !location) {
       return res.status(400).json({ error: "uid aur location dono chahiye" });
     }
+
+    const validTypes = ["city_seller", "thok_seller"];
+    const type = validTypes.includes(sellerType) ? sellerType : "city_seller";
 
     const user = await User.findOne({ uid });
 
@@ -83,12 +87,14 @@ router.post("/assign-seller", async (req, res) => {
       {
         $set: {
           role: "seller",
-          location: location.trim()
+          location: location.trim(),
+          sellerType: type
         }
       }
     );
 
-    res.json({ success: true, message: `${user.name} ab seller hai — ${location}` });
+    const typeLabel = type === "thok_seller" ? "Thok Mandi Seller" : "City Seller";
+    res.json({ success: true, message: `${user.name} ab ${typeLabel} hai — ${location}` });
 
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -111,7 +117,8 @@ router.post("/remove-seller", async (req, res) => {
       {
         $set: {
           role: "user",
-          location: ""
+          location: "",
+          sellerType: null
         }
       }
     );

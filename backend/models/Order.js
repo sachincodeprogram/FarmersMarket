@@ -13,6 +13,9 @@ const OrderSchema = new mongoose.Schema(
 
     location: String,         // ✅ NEW — vendor filter ke liye
 
+    // Thok Mandi sellers involved in this order (name + phone for contact)
+    thokSellers: { type: Array, default: [] },
+
     status: {
       type: String,
       default: "pending"      // pending | delivered

@@ -51,7 +51,13 @@ export default function Admin() {
               <p>🏠 {o.address}</p>
             </div>
 
-            <span style={status} className="admin-status">{o.status}</span>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8}}>
+              <span style={status} className="admin-status">{o.status}</span>
+              {o.thokSellers && o.thokSellers.length > 0
+                ? <span style={thokBadge}>🏭 Thok Mandi</span>
+                : <span style={cityBadge}>🛒 City Seller</span>
+              }
+            </div>
 
           </div>
 
@@ -153,4 +159,24 @@ const btn={
   cursor:"pointer",
   width:"100%",
   fontWeight:600
+};
+
+const cityBadge={
+  padding:"4px 12px",
+  borderRadius:20,
+  background:"#f0fdf4",
+  color:"#16a34a",
+  border:"1px solid #c6e8c6",
+  fontSize:12,
+  fontWeight:700
+};
+
+const thokBadge={
+  padding:"4px 12px",
+  borderRadius:20,
+  background:"#fff7ed",
+  color:"#c2410c",
+  border:"1px solid #fed7aa",
+  fontSize:12,
+  fontWeight:700
 };

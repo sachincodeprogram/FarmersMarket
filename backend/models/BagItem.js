@@ -8,6 +8,8 @@ const bagItemSchema = new mongoose.Schema(
     name: { type: String, required: true },
     image: String,
 
+    sellerId: { type: String, default: null },
+
     qty: { type: Number, default: 1 },
     price: { type: Number, default: 0 },
   },

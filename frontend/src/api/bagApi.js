@@ -35,6 +35,7 @@ export async function addToBagApi(product) {
       name: product.name,
       price: product.price,
       image: product.image,
+      sellerId: product.sellerId || null,
     }),
   });
 

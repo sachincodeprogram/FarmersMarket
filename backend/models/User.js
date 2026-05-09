@@ -16,6 +16,13 @@ const UserSchema = new mongoose.Schema(
       default: "user",
     },
 
+    // city_seller = apni city me bechta hai, thok_seller = wholesale mandi seller
+    sellerType: {
+      type: String,
+      enum: ["city_seller", "thok_seller", null],
+      default: null,
+    },
+
     sellerCode: {
       type: String,
       default: null,

@@ -20,8 +20,10 @@ export default function AdminManageSellers() {
   // Pehle ek shared selectedCity thi — agar ek user ke liye select karo
   // aur dusre ke liye bhi select karo, state mix ho jaati thi.
   // Ab har user ka apna city dropdown hai: cityMap[uid] = "Delhi"
-  const [cityMap, setCityMap] = useState({});       // { uid: "Delhi" }
+  const [cityMap, setCityMap] = useState({});           // { uid: "Delhi" }
+  const [sellerTypeMap, setSellerTypeMap] = useState({}); // { uid: "city_seller"|"thok_seller" }
   const [selectedUid, setSelectedUid] = useState("");
+  const [changeTypeUid, setChangeTypeUid] = useState(""); // existing seller ka type change
   const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
@@ -42,10 +44,11 @@ export default function AdminManageSellers() {
 
   // ✅ FIX: cityMap[uid] se city lo — shared state nahi
   async function assignSeller(uid) {
-    const city = cityMap[uid] || "";
+    const city       = cityMap[uid] || "";
+    const sellerType = sellerTypeMap[uid] || "city_seller";
 
     if (!city) {
-      setMsg("❌ Pehle city chuniye");
+      setMsg("❌ Pehle city/location chuniye");
       return;
     }
 
@@ -54,17 +57,43 @@ export default function AdminManageSellers() {
       setMsg("");
       const res = await axios.post(`${API}/api/users/assign-seller`, {
         uid,
-        location: city
+        location: city,
+        sellerType
       });
       setMsg("✅ " + res.data.message);
       loadUsers();
       setSelectedUid("");
-      // Us user ki city entry hata do
-      setCityMap(prev => {
-        const next = { ...prev };
-        delete next[uid];
-        return next;
+      setCityMap(prev => { const n = { ...prev }; delete n[uid]; return n; });
+      setSellerTypeMap(prev => { const n = { ...prev }; delete n[uid]; return n; });
+    } catch (err) {
+      setMsg("❌ Kuch gadbad hui, dobara try karo");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function changeSeller(uid) {
+    const city       = cityMap[uid] || "";
+    const sellerType = sellerTypeMap[uid] || "city_seller";
+
+    if (!city) {
+      setMsg("❌ Pehle city/location chuniye");
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      setMsg("");
+      const res = await axios.post(`${API}/api/users/assign-seller`, {
+        uid,
+        location: city,
+        sellerType
       });
+      setMsg("✅ " + res.data.message);
+      loadUsers();
+      setChangeTypeUid("");
+      setCityMap(prev => { const n = { ...prev }; delete n[uid]; return n; });
+      setSellerTypeMap(prev => { const n = { ...prev }; delete n[uid]; return n; });
     } catch (err) {
       setMsg("❌ Kuch gadbad hui, dobara try karo");
     } finally {
@@ -94,8 +123,10 @@ export default function AdminManageSellers() {
     (u.uid || "").includes(search)
   );
 
-  const sellers     = filtered.filter(u => u.role === "seller");
-  const normalUsers = filtered.filter(u => u.role !== "seller" && u.role !== "admin");
+  const sellers      = filtered.filter(u => u.role === "seller");
+  const citySellers  = sellers.filter(u => !u.sellerType || u.sellerType === "city_seller");
+  const thokSellers  = sellers.filter(u => u.sellerType === "thok_seller");
+  const normalUsers  = filtered.filter(u => u.role !== "seller" && u.role !== "admin");
 
   if (loading) {
     return (
@@ -112,9 +143,10 @@ export default function AdminManageSellers() {
 
       {/* Stats */}
       <div style={statsRow}>
-        <StatCard label="Total Users"    value={users.length}       color="#3b82f6" />
-        <StatCard label="Active Sellers" value={sellers.length}     color="#16a34a" />
-        <StatCard label="Normal Users"   value={normalUsers.length} color="#f59e0b" />
+        <StatCard label="Total Users"    value={users.length}        color="#3b82f6" />
+        <StatCard label="City Sellers"   value={citySellers.length}  color="#16a34a" />
+        <StatCard label="Thok Mandi"     value={thokSellers.length}  color="#f97316" />
+        <StatCard label="Normal Users"   value={normalUsers.length}  color="#f59e0b" />
       </div>
 
       {/* Message */}
@@ -136,34 +168,108 @@ export default function AdminManageSellers() {
         onChange={e => setSearch(e.target.value)}
       />
 
-      {/* ── ACTIVE SELLERS ── */}
-      <h3 style={sectionTitle}>✅ Active Sellers ({sellers.length})</h3>
+      {/* ── CITY SELLERS ── */}
+      <h3 style={sectionTitle}>🛒 City Sellers ({citySellers.length})</h3>
 
-      {sellers.length === 0 ? (
-        <div style={emptyBox}>
-          <p>Abhi koi seller nahi hai</p>
-        </div>
+      {citySellers.length === 0 ? (
+        <div style={emptyBox}><p>Abhi koi City Seller nahi hai</p></div>
       ) : (
-        sellers.map(u => (
+        citySellers.map(u => (
           <div key={u._id} style={userCard}>
-
             <div style={userInfo}>
               <b style={{ fontSize: 16 }}>{u.name || "—"}</b>
               <p style={subText}>📞 {u.phone || "—"}</p>
               <p style={subText}>🆔 {u.uid}</p>
-              <div style={sellerBadge}>
-                🛒 Seller — 📍 {u.location || "Location nahi"}
-              </div>
+              <div style={sellerBadge}>🛒 City Seller — 📍 {u.location || "Location nahi"}</div>
             </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
+              {changeTypeUid === u.uid ? (
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <select
+                    style={{ ...citySelect, background: "#fff7ed", borderColor: "#f97316" }}
+                    value={sellerTypeMap[u.uid] || "city_seller"}
+                    onChange={e => setSellerTypeMap(prev => ({ ...prev, [u.uid]: e.target.value }))}
+                  >
+                    <option value="city_seller">🛒 City Seller</option>
+                    <option value="thok_seller">🏭 Thok Mandi</option>
+                  </select>
+                  <select
+                    style={citySelect}
+                    value={cityMap[u.uid] || u.location || ""}
+                    onChange={e => setCityMap(prev => ({ ...prev, [u.uid]: e.target.value }))}
+                  >
+                    <option value="">📍 City chuniye</option>
+                    {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <button style={confirmBtn} onClick={() => changeSeller(u.uid)} disabled={actionLoading}>
+                    {actionLoading ? "⏳" : "✅ Save"}
+                  </button>
+                  <button style={cancelBtn} onClick={() => { setChangeTypeUid(""); setCityMap(prev => { const n={...prev}; delete n[u.uid]; return n; }); setSellerTypeMap(prev => { const n={...prev}; delete n[u.uid]; return n; }); }}>
+                    Ruko
+                  </button>
+                </div>
+              ) : (
+                <button style={changeBtn} onClick={() => { setChangeTypeUid(u.uid); setMsg(""); }} disabled={actionLoading}>
+                  🔄 Type Badlo
+                </button>
+              )}
+              <button style={removeBtn} onClick={() => removeSeller(u.uid, u.name)} disabled={actionLoading}>
+                ❌ Remove Seller
+              </button>
+            </div>
+          </div>
+        ))
+      )}
 
-            <button
-              style={removeBtn}
-              onClick={() => removeSeller(u.uid, u.name)}
-              disabled={actionLoading}
-            >
-              ❌ Remove Seller
-            </button>
+      {/* ── THOK MANDI SELLERS ── */}
+      <h3 style={{ ...sectionTitle, marginTop: 28 }}>🏭 Thok Mandi Sellers ({thokSellers.length})</h3>
 
+      {thokSellers.length === 0 ? (
+        <div style={emptyBox}><p>Abhi koi Thok Mandi Seller nahi hai</p></div>
+      ) : (
+        thokSellers.map(u => (
+          <div key={u._id} style={userCard}>
+            <div style={userInfo}>
+              <b style={{ fontSize: 16 }}>{u.name || "—"}</b>
+              <p style={subText}>📞 {u.phone || "—"}</p>
+              <p style={subText}>🆔 {u.uid}</p>
+              <div style={thokBadge}>🏭 Thok Mandi — 📍 {u.location || "Location nahi"}</div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
+              {changeTypeUid === u.uid ? (
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <select
+                    style={{ ...citySelect, background: "#fff7ed", borderColor: "#f97316" }}
+                    value={sellerTypeMap[u.uid] || "thok_seller"}
+                    onChange={e => setSellerTypeMap(prev => ({ ...prev, [u.uid]: e.target.value }))}
+                  >
+                    <option value="city_seller">🛒 City Seller</option>
+                    <option value="thok_seller">🏭 Thok Mandi</option>
+                  </select>
+                  <select
+                    style={citySelect}
+                    value={cityMap[u.uid] || u.location || ""}
+                    onChange={e => setCityMap(prev => ({ ...prev, [u.uid]: e.target.value }))}
+                  >
+                    <option value="">📍 City chuniye</option>
+                    {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <button style={confirmBtn} onClick={() => changeSeller(u.uid)} disabled={actionLoading}>
+                    {actionLoading ? "⏳" : "✅ Save"}
+                  </button>
+                  <button style={cancelBtn} onClick={() => { setChangeTypeUid(""); setCityMap(prev => { const n={...prev}; delete n[u.uid]; return n; }); setSellerTypeMap(prev => { const n={...prev}; delete n[u.uid]; return n; }); }}>
+                    Ruko
+                  </button>
+                </div>
+              ) : (
+                <button style={changeBtn} onClick={() => { setChangeTypeUid(u.uid); setMsg(""); }} disabled={actionLoading}>
+                  🔄 Type Badlo
+                </button>
+              )}
+              <button style={removeBtn} onClick={() => removeSeller(u.uid, u.name)} disabled={actionLoading}>
+                ❌ Remove Seller
+              </button>
+            </div>
           </div>
         ))
       )}
@@ -194,6 +300,20 @@ export default function AdminManageSellers() {
               {selectedUid === u.uid ? (
 
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+
+                  {/* Seller Type */}
+                  <select
+                    style={{ ...citySelect, background: "#fff7ed", borderColor: "#f97316" }}
+                    value={sellerTypeMap[u.uid] || "city_seller"}
+                    onChange={e =>
+                      setSellerTypeMap(prev => ({ ...prev, [u.uid]: e.target.value }))
+                    }
+                  >
+                    <option value="city_seller">🛒 City Seller</option>
+                    <option value="thok_seller">🏭 Thok Mandi</option>
+                  </select>
+
+                  {/* City / Location */}
                   <select
                     style={citySelect}
                     value={cityMap[u.uid] || ""}
@@ -219,11 +339,8 @@ export default function AdminManageSellers() {
                     style={cancelBtn}
                     onClick={() => {
                       setSelectedUid("");
-                      setCityMap(prev => {
-                        const next = { ...prev };
-                        delete next[u.uid];
-                        return next;
-                      });
+                      setCityMap(prev => { const n = { ...prev }; delete n[u.uid]; return n; });
+                      setSellerTypeMap(prev => { const n = { ...prev }; delete n[u.uid]; return n; });
                     }}
                   >
                     Ruko
@@ -362,6 +479,18 @@ const sellerBadge = {
   fontWeight: 600
 };
 
+const thokBadge = {
+  display: "inline-block",
+  marginTop: 6,
+  background: "#fff7ed",
+  border: "1px solid #f97316",
+  color: "#c2410c",
+  padding: "4px 12px",
+  borderRadius: 20,
+  fontSize: 12,
+  fontWeight: 600
+};
+
 const userBadge = {
   display: "inline-block",
   marginTop: 6,
@@ -424,6 +553,17 @@ const removeBtn = {
   background: "#fef2f2",
   color: "#dc2626",
   border: "1px solid #fca5a5",
+  borderRadius: 10,
+  cursor: "pointer",
+  fontWeight: 600,
+  fontSize: 14
+};
+
+const changeBtn = {
+  padding: "10px 16px",
+  background: "#eff6ff",
+  color: "#2563eb",
+  border: "1px solid #bfdbfe",
   borderRadius: 10,
   cursor: "pointer",
   fontWeight: 600,

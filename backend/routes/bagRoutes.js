@@ -39,7 +39,7 @@ router.get("/", auth, async (req, res) => {
 // ✅ POST add to bag (qty बढ़ेगी + price add होगी)
 router.post("/", auth, async (req, res) => {
   try {
-    const { productId, name, price, image } = req.body;
+    const { productId, name, price, image, sellerId } = req.body;
 
     if (!productId || !name) {
       return res
@@ -59,10 +59,11 @@ router.post("/", auth, async (req, res) => {
     }
 
     const newItem = new BagItem({
-      uid: req.uid, // ✅ uid save
+      uid: req.uid,
       productId,
       name,
       image,
+      sellerId: sellerId || null,
       qty: 1,
       price: price || 0,
     });

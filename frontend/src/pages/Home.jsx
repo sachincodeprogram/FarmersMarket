@@ -9,21 +9,22 @@ const CITIES = [
 ];
 
 export default function Home() {
-  const [products, setProducts] = useState([]);
-  const [search, setSearch]     = useState("");
-  const [city, setCity]         = useState(() => localStorage.getItem("fm_city") || "");
-  const [loading, setLoading]   = useState(false);
-  const [toastId, setToastId]   = useState(null);
+  const [products, setProducts]       = useState([]);
+  const [search, setSearch]           = useState("");
+  const [city, setCity]               = useState(() => localStorage.getItem("fm_city") || "");
+  const [sellerTab, setSellerTab]     = useState("city_seller"); // "city_seller" | "thok_seller"
+  const [loading, setLoading]         = useState(false);
+  const [toastId, setToastId]         = useState(null);
 
   useEffect(() => {
-    if (city) fetchProducts(city);
+    if (city) fetchProducts(city, sellerTab);
     else setProducts([]);
-  }, [city]);
+  }, [city, sellerTab]);
 
-  async function fetchProducts(selectedCity) {
+  async function fetchProducts(selectedCity, type) {
     try {
       setLoading(true);
-      const res  = await fetch(`${API}/api/products/location/${selectedCity}`);
+      const res  = await fetch(`${API}/api/products/location/${selectedCity}?type=${type}`);
       const data = await res.json();
       setProducts(data);
     } catch (err) { console.log(err); }
@@ -439,6 +440,59 @@ export default function Home() {
         }
 
         .hm-city-label b { color: #2d5a27; }
+
+        /* ── SELLER TYPE TABS ── */
+        .hm-tabs {
+          display: flex;
+          gap: 10px;
+          margin-top: 18px;
+        }
+
+        .hm-tab {
+          padding: 10px 22px;
+          border-radius: 100px;
+          border: 2px solid rgba(255,255,255,0.3);
+          background: rgba(255,255,255,0.08);
+          color: rgba(255,255,255,0.7);
+          font-family: 'Nunito', sans-serif;
+          font-size: 14px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.2s;
+          backdrop-filter: blur(8px);
+        }
+
+        .hm-tab:hover {
+          background: rgba(255,255,255,0.15);
+          color: #fff;
+        }
+
+        .hm-tab.active-city {
+          background: #16a34a;
+          border-color: #16a34a;
+          color: #fff;
+          box-shadow: 0 4px 14px rgba(22,163,74,0.4);
+        }
+
+        .hm-tab.active-thok {
+          background: #f97316;
+          border-color: #f97316;
+          color: #fff;
+          box-shadow: 0 4px 14px rgba(249,115,22,0.4);
+        }
+
+        /* Thok mandi seller header — orange theme */
+        .hm-seller-avatar.thok { background: linear-gradient(135deg, #c2410c, #f97316); }
+        .hm-seller-phone.thok {
+          color: #c2410c;
+          background: #fff7ed;
+          border-color: #fed7aa;
+        }
+        .hm-seller-phone.thok:hover { background: #ffedd5; }
+        .hm-buy-btn.thok {
+          background: linear-gradient(135deg, #c2410c, #f97316);
+        }
+        .hm-fresh-badge.thok { background: #f97316; }
       `}</style>
 
       <div className="hm-root">
@@ -464,6 +518,22 @@ export default function Home() {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
+            </div>
+
+            {/* Seller Type Tabs */}
+            <div className="hm-tabs">
+              <button
+                className={`hm-tab ${sellerTab === "city_seller" ? "active-city" : ""}`}
+                onClick={() => setSellerTab("city_seller")}
+              >
+                🛒 City Seller
+              </button>
+              <button
+                className={`hm-tab ${sellerTab === "thok_seller" ? "active-thok" : ""}`}
+                onClick={() => setSellerTab("thok_seller")}
+              >
+                🏭 Thok Mandi
+              </button>
             </div>
           </div>
         </div>
@@ -491,9 +561,9 @@ export default function Home() {
           {/* No products */}
           {city && !loading && products.length === 0 && (
             <div className="hm-empty">
-              <div className="hm-empty-icon">🌾</div>
-              <h3>{city} mein abhi koi product nahi</h3>
-              <p>Jald hi kisan products add karega</p>
+              <div className="hm-empty-icon">{sellerTab === "thok_seller" ? "🏭" : "🌾"}</div>
+              <h3>{city} mein abhi koi {sellerTab === "thok_seller" ? "Thok Mandi" : "City"} product nahi</h3>
+              <p>{sellerTab === "thok_seller" ? "Is city mein Thok Mandi seller abhi nahi hai" : "Jald hi kisan products add karega"}</p>
             </div>
           )}
 
@@ -523,6 +593,7 @@ export default function Home() {
               toastId={toastId}
               onAddToBag={handleAddToBag}
               delay={idx * 0.08}
+              isThok={sellerTab === "thok_seller"}
             />
           ))}
         </div>
@@ -531,7 +602,7 @@ export default function Home() {
   );
 }
 
-function SellerSection({ sellerId, group, city, toastId, onAddToBag, delay }) {
+function SellerSection({ sellerId, group, city, toastId, onAddToBag, delay, isThok }) {
   const [showVideo, setShowVideo] = useState({});
 
   function toggleVideo(id) {
@@ -545,15 +616,29 @@ function SellerSection({ sellerId, group, city, toastId, onAddToBag, delay }) {
     <div className="hm-seller-section" style={{ animationDelay: `${delay}s` }}>
       {/* Seller Header */}
       <div className="hm-seller-header">
-        <div className="hm-seller-avatar">🧑‍🌾</div>
+        <div className={`hm-seller-avatar${isThok ? " thok" : ""}`}>
+          {isThok ? "🏭" : "🧑‍🌾"}
+        </div>
         <div className="hm-seller-info">
           <h3>{displayName}</h3>
           <div className="hm-seller-meta">
-            <span className="hm-seller-location">📍 {city}</span>
-            {displayPhone && (
+            <span className="hm-seller-location">
+              {isThok ? "🏭" : "📍"} {city}
+            </span>
+            {/* City seller: phone dikhao; Thok mandi: phone mat dikhao (order page pe dikhega) */}
+            {!isThok && displayPhone && (
               <a href={`tel:${displayPhone}`} className="hm-seller-phone">
                 📞 {displayPhone}
               </a>
+            )}
+            {isThok && (
+              <span style={{
+                fontSize: 11, background: "#fff7ed", color: "#c2410c",
+                border: "1px solid #fed7aa", padding: "2px 10px",
+                borderRadius: 100, fontWeight: 700
+              }}>
+                Thok Mandi
+              </span>
             )}
             <span className="hm-seller-count">{group.products.length} Products</span>
           </div>
@@ -570,7 +655,9 @@ function SellerSection({ sellerId, group, city, toastId, onAddToBag, delay }) {
               ) : (
                 <img src={p.image} alt={p.name} />
               )}
-              <div className="hm-fresh-badge">Fresh</div>
+              <div className={`hm-fresh-badge${isThok ? " thok" : ""}`}>
+                {isThok ? "Thok" : "Fresh"}
+              </div>
               {p.video && (
                 <div className="hm-video-hint">
                   {showVideo[p._id] ? "📷 Photo" : "▶ Video"}
@@ -583,10 +670,10 @@ function SellerSection({ sellerId, group, city, toastId, onAddToBag, delay }) {
                 ₹{p.price}<span>/kg</span>
               </div>
               <button
-                className={`hm-buy-btn ${toastId === p._id ? "added" : ""}`}
+                className={`hm-buy-btn${isThok ? " thok" : ""} ${toastId === p._id ? "added" : ""}`}
                 onClick={e => onAddToBag(p, e)}
               >
-                {toastId === p._id ? "✅ Added!" : "🛒 Bag Mein Daalo"}
+                {toastId === p._id ? "✅ Added!" : (isThok ? "🏭 Thok Mein Lo" : "🛒 Bag Mein Daalo")}
               </button>
             </div>
           </div>

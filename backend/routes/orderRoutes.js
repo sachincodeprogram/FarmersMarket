@@ -2,6 +2,7 @@ const router = require("express").Router();
 const Order = require("../models/Order");
 const BagItem = require("../models/BagItem");
 const User = require("../models/User");
+const Product = require("../models/Product");
 
 // CREATE ORDER FROM BAG
 router.post("/create", async (req, res) => {
@@ -15,6 +16,20 @@ router.post("/create", async (req, res) => {
     return res.status(400).json({ error: "Bag empty" });
   }
 
+  // Thok Mandi sellers dhundo — order page mein contact show karne ke liye
+  let thokSellers = [];
+  try {
+    const productIds = [...new Set(bags.map(b => b.productId).filter(Boolean))];
+    const products = await Product.find({ _id: { $in: productIds } });
+    const sellerIds = [...new Set(products.map(p => p.sellerId).filter(Boolean))];
+    const thokUsers = await User.find({ uid: { $in: sellerIds }, sellerType: "thok_seller" });
+    thokSellers = thokUsers.map(s => ({
+      sellerId: s.uid,
+      name: s.name || "",
+      phone: s.phone || ""
+    }));
+  } catch (_) {}
+
   const totalQty = bags.reduce((s, i) => s + (i.qty || 0), 0);
   const totalPrice = bags.reduce((s, i) => s + (i.price || 0), 0);
 
@@ -27,7 +42,8 @@ router.post("/create", async (req, res) => {
     totalQty,
     totalPrice,
     advancePaid: advance,
-    location: user.location || "",   // ✅ NEW — user ki location order mein save ho
+    location: user.location || "",
+    thokSellers,
     status: "pending"
   });
 
