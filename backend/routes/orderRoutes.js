@@ -94,11 +94,25 @@ router.get("/admin", async (req, res) => {
 });
 
 
-// ✅ NEW — VENDOR ORDERS (sirf us city ke pending orders)
+// CITY SELLER — sirf us city ke pending orders
 router.get("/vendor/:location", async (req, res) => {
   try {
     const orders = await Order.find({
       location: req.params.location,
+      status: "pending"
+    }).sort({ createdAt: -1 });
+
+    res.json(orders);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// THOK MANDI SELLER — sirf woh orders jo us seller ke products contain karte hain
+router.get("/thok-seller/:uid", async (req, res) => {
+  try {
+    const orders = await Order.find({
+      "thokSellers.sellerId": req.params.uid,
       status: "pending"
     }).sort({ createdAt: -1 });
 
