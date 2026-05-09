@@ -73,8 +73,9 @@ export default function AdminManageSellers() {
   }
 
   async function changeSeller(uid) {
-    const city       = cityMap[uid] || "";
-    const sellerType = sellerTypeMap[uid] || "city_seller";
+    const currentUser = users.find(u => u.uid === uid);
+    const city        = cityMap[uid] || currentUser?.location || "";
+    const sellerType  = sellerTypeMap[uid] || currentUser?.sellerType || "city_seller";
 
     if (!city) {
       setMsg("❌ Pehle city/location chuniye");
