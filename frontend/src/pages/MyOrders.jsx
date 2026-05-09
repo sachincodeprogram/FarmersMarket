@@ -6,9 +6,13 @@ const API = import.meta.env.VITE_API;
 
 export default function MyOrders(){
 
-  const [orders,setOrders]       = useState([]);
-  const [rewards,setRewards]     = useState([]);
-  const [screen,setScreen]       = useState(window.innerWidth);
+  const [orders,setOrders]         = useState([]);
+  const [rewards,setRewards]       = useState([]);
+  const [screen,setScreen]         = useState(window.innerWidth);
+  const [rewardInput,setRewardInput] = useState("");
+  const [rewardMsg,setRewardMsg]   = useState(null);   // {type:"ok"|"err", text:"..."}
+  const [rewardChecking,setRewardChecking] = useState(false);
+  const [currentUid,setCurrentUid] = useState(null);
 
   // ✅ Only for responsiveness (logic untouched)
   useEffect(()=>{
@@ -20,6 +24,7 @@ export default function MyOrders(){
   useEffect(()=>{
     auth.onAuthStateChanged(async(user)=>{
       if(!user) return;
+      setCurrentUid(user.uid);
 
       const res = await axios.get(`${API}/api/orders/user/` + user.uid);
       setOrders(res.data.filter(o => o.totalPrice > 0));
@@ -28,6 +33,31 @@ export default function MyOrders(){
       setRewards(Array.isArray(rRes.data) ? rRes.data : []);
     });
   },[]);
+
+  async function applyRewardCode(){
+    if(!rewardInput.trim()) return;
+    if(!currentUid){ setRewardMsg({type:"err",text:"Pehle login karo"}); return; }
+    setRewardChecking(true);
+    setRewardMsg(null);
+    try{
+      await axios.post(`${API}/api/rewards/validate`,{
+        code: rewardInput.trim().toUpperCase(),
+        uid: currentUid
+      });
+      setRewardMsg({type:"ok", text:"✅ Code valid hai! Bag mein jake use karo."});
+    }catch(e){
+      setRewardMsg({type:"err", text: e?.response?.data?.error || "❌ Code galat hai ya pehle use ho chuka hai"});
+    }finally{
+      setRewardChecking(false);
+    }
+  }
+
+  function daysAgo(dateStr){
+    const d = Math.floor((Date.now() - new Date(dateStr)) / (1000*60*60*24));
+    if(d === 0) return "Aaj";
+    if(d === 1) return "1 din pehle";
+    return d + " din pehle";
+  }
 
   async function orderAgain(o){
 
@@ -65,7 +95,34 @@ export default function MyOrders(){
 
       <h2 style={title}>📦 My Orders</h2>
 
-      {/* Reward codes */}
+      {/* Reward code input — always visible */}
+      <div style={inputBox}>
+        <p style={inputTitle}>🎁 Reward Code Apply Karo</p>
+        <div style={inputRow}>
+          <input
+            style={codeInput}
+            value={rewardInput}
+            onChange={e=>{ setRewardInput(e.target.value.toUpperCase()); setRewardMsg(null); }}
+            placeholder="Reward Code Daalo (e.g. KISANXYZ123)"
+            onKeyDown={e=>{ if(e.key==="Enter") applyRewardCode(); }}
+          />
+          <button style={applyBtn} onClick={applyRewardCode} disabled={rewardChecking}>
+            {rewardChecking ? "..." : "Apply"}
+          </button>
+        </div>
+        {rewardMsg && (
+          <p style={{ marginTop:8, fontSize:13, fontWeight:600, color: rewardMsg.type==="ok"?"#15803d":"#dc2626" }}>
+            {rewardMsg.text}
+            {rewardMsg.type==="ok" && (
+              <a href="/bag" style={{ marginLeft:10, color:"#7c3aed", textDecoration:"underline", fontWeight:700 }}>
+                Bag mein jao →
+              </a>
+            )}
+          </p>
+        )}
+      </div>
+
+      {/* Earned reward codes */}
       {rewards.length > 0 && (
         <div style={rewardBox}>
           <p style={rewardTitle}>🎁 Aapke Reward Codes</p>
@@ -87,13 +144,80 @@ export default function MyOrders(){
         </div>
       )}
 
+      {/* Reward progress tracker */}
+      {orders.length > 0 && (()=>{
+        const oldest   = orders[orders.length - 1];
+        const daysDone = Math.floor((Date.now() - new Date(oldest.createdAt)) / (1000*60*60*24));
+        const cappedDays   = Math.min(daysDone, 3);
+        const daysLeft     = Math.max(0, 3 - daysDone);
+        const ordersInCycle = orders.length % 3 === 0 ? 3 : orders.length % 3;
+        const ordersLeft    = 3 - ordersInCycle;
+        const daysDone_ok   = daysDone >= 3;
+        const orders_ok     = ordersLeft === 0;
+        return (
+          <div style={progressBox}>
+            <p style={progressTitle}>🏆 Reward Progress (3 Din + 3 Orders)</p>
+
+            {/* Days progress */}
+            <div style={progressRow}>
+              <span style={progressLabel}>📅 Din Complete:</span>
+              <div style={barWrap}>
+                <div style={{...barFill, width:`${(cappedDays/3)*100}%`, background: daysDone_ok?"#16a34a":"#f59e0b"}}/>
+              </div>
+              <span style={progressCount}>{cappedDays}/3</span>
+              {daysDone_ok
+                ? <span style={okBadge}>✅ Complete!</span>
+                : <span style={pendingBadge}>⏳ {daysLeft} din aur</span>}
+            </div>
+
+            {/* Orders progress */}
+            <div style={progressRow}>
+              <span style={progressLabel}>🛒 Orders:</span>
+              <div style={barWrap}>
+                <div style={{...barFill, width:`${(ordersInCycle/3)*100}%`, background: orders_ok?"#16a34a":"#f59e0b"}}/>
+              </div>
+              <span style={progressCount}>{ordersInCycle}/3</span>
+              {orders_ok
+                ? <span style={okBadge}>✅ Complete!</span>
+                : <span style={pendingBadge}>⏳ {ordersLeft} order aur</span>}
+            </div>
+
+            {daysDone_ok && orders_ok && (
+              <p style={{marginTop:10,fontWeight:800,fontSize:13,color:"#7c3aed"}}>
+                🎁 Aapko reward mil chuka hai ya agle order ke baad milega!
+              </p>
+            )}
+            {(!daysDone_ok || !orders_ok) && (
+              <p style={{marginTop:10,fontSize:12,color:"#6b7280"}}>
+                Dono conditions poori hone par reward code milega.
+              </p>
+            )}
+
+            {/* Per-order day list */}
+            <div style={{marginTop:14,borderTop:"1px dashed #e2e8f0",paddingTop:12}}>
+              <p style={{fontWeight:700,fontSize:12,color:"#374151",marginBottom:8}}>📋 Order History (Din)</p>
+              {[...orders].reverse().map((o,i)=>(
+                <div key={o._id} style={dayListRow}>
+                  <span style={dayListNum}>Order {i+1}</span>
+                  <span style={dayListName}>{o.items?.[0]?.name || "Order"}{o.items?.length > 1 ? ` +${o.items.length-1}` : ""}</span>
+                  <span style={dayListDate}>{daysAgo(o.createdAt)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {orders.map(o=>(
 
         <div key={o._id} style={card}>
 
           <div style={row(mobile)}>
 
-            <b>Status</b>
+            <div>
+              <b>Status</b>
+              <span style={dinTag}>{daysAgo(o.createdAt)}</span>
+            </div>
 
             <span style={{
               ...pill,
@@ -285,6 +409,82 @@ const copyBtn={
   padding:"8px 14px", background:"#7c3aed", color:"#fff",
   border:"none", borderRadius:10, cursor:"pointer", fontWeight:700, fontSize:13
 };
+
+const inputBox={
+  background:"#f0fdf4",
+  border:"1.5px solid #86efac",
+  borderRadius:16,
+  padding:"18px 20px",
+  marginBottom:24
+};
+const inputTitle={ fontWeight:800, fontSize:15, color:"#166534", marginBottom:12 };
+const inputRow={ display:"flex", gap:10 };
+const codeInput={
+  flex:1,
+  padding:"11px 14px",
+  borderRadius:10,
+  border:"1.5px solid #86efac",
+  fontSize:15,
+  fontFamily:"monospace",
+  fontWeight:700,
+  letterSpacing:1,
+  outline:"none"
+};
+const applyBtn={
+  padding:"11px 20px",
+  background:"linear-gradient(135deg,#16a34a,#15803d)",
+  color:"#fff",
+  border:"none",
+  borderRadius:10,
+  fontWeight:700,
+  fontSize:14,
+  cursor:"pointer"
+};
+
+const dinTag={
+  marginLeft:8, fontSize:11, fontWeight:600,
+  color:"#64748b", background:"#f1f5f9",
+  padding:"2px 8px", borderRadius:999
+};
+
+const progressBox={
+  background:"#fff",
+  border:"1.5px solid #e2e8f0",
+  borderRadius:16,
+  padding:"18px 20px",
+  marginBottom:24,
+  boxShadow:"0 4px 12px rgba(0,0,0,.04)"
+};
+const progressTitle={ fontWeight:800, fontSize:15, color:"#0f172a", marginBottom:14 };
+const progressRow={
+  display:"flex", alignItems:"center", gap:10,
+  marginBottom:10, flexWrap:"wrap"
+};
+const progressLabel={ fontSize:13, fontWeight:600, color:"#374151", minWidth:110 };
+const progressCount={ fontSize:13, fontWeight:700, color:"#0f172a", minWidth:28 };
+const barWrap={
+  flex:1, minWidth:80, height:10,
+  background:"#e2e8f0", borderRadius:999, overflow:"hidden"
+};
+const barFill={ height:"100%", borderRadius:999, transition:"width 0.4s" };
+const okBadge={
+  fontSize:12, fontWeight:700, color:"#16a34a",
+  background:"#dcfce7", padding:"3px 10px", borderRadius:999
+};
+const pendingBadge={
+  fontSize:12, fontWeight:600, color:"#92400e",
+  background:"#fef3c7", padding:"3px 10px", borderRadius:999
+};
+const dayListRow={
+  display:"flex", alignItems:"center", gap:10,
+  marginBottom:6, flexWrap:"wrap"
+};
+const dayListNum={
+  fontSize:12, fontWeight:700, color:"#7c3aed",
+  background:"#ede9fe", padding:"2px 8px", borderRadius:999, minWidth:56
+};
+const dayListName={ fontSize:13, color:"#374151", flex:1 };
+const dayListDate={ fontSize:12, color:"#64748b", fontWeight:600 };
 
 const thokPhone={
   fontSize:"14px",

@@ -64,12 +64,18 @@ router.post("/create", async (req, res) => {
 
   await BagItem.deleteMany({ uid });
 
-  // Har 3 orders ke baad ek reward code generate karo
+  // Reward: har 3 orders ke baad, lekin sirf tab jab 3+ din guzar gaye hon pehle order se
   const orderCount = await Order.countDocuments({ uid });
   let newRewardCode = null;
   if (orderCount > 0 && orderCount % 3 === 0) {
-    newRewardCode = "KISAN" + Math.random().toString(36).substring(2, 8).toUpperCase();
-    await RewardCode.create({ code: newRewardCode, uid });
+    const firstOrder = await Order.findOne({ uid }).sort({ createdAt: 1 });
+    const daysSinceFirst = firstOrder
+      ? Math.floor((Date.now() - new Date(firstOrder.createdAt)) / (1000 * 60 * 60 * 24))
+      : 0;
+    if (daysSinceFirst >= 3) {
+      newRewardCode = "KISAN" + Math.random().toString(36).substring(2, 8).toUpperCase();
+      await RewardCode.create({ code: newRewardCode, uid });
+    }
   }
 
   res.json({ success: true, rewardCode: newRewardCode });
